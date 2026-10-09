@@ -70,4 +70,4 @@
 	rem
 	rem Final message before exiting hook
 	rem
-	endlocal
+	endlocal

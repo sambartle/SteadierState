@@ -2,115 +2,103 @@
 	rem
 	rem Steadier State command file \srs\merge.cmd
 	rem
-	rem	FUNCTION:
-	rem Merges files snapshot.vhd and image.vhd into image.vhd Here are
-	rem the detailed steps.
-	rem 1) Gets information about the existence of image.vhd and
-	rem	snapshot.vhd from startnet
-	rem 2) Merges the two files
-	rem 3) Deletes the old snapshot.vhd
-	rem 4) Creates a new empty snapshot.vhd -- no BCD work required.
+	rem FUNCTION:
+	rem Merges snapshot.vhd into image.vhd, then creates a fresh empty
+	rem snapshot.vhd. Called from startnet.cmd (startnethd.cmd), which
+	rem sets _phydrive, _actdrive and _bcdstore.
 	rem
-	rem SETUP:
-	rem	assumes we've booted to the onboard SRS Tools WinPE (X:)
-	rem assumes that \snapshot.vhd is on the same drive as WinPE's running (X: now, C: when rebooted to Win 7)
-	rem
-	rem if we got here, time to get to work: merge the files, delete the old snapshot, create a new one.
+	rem Windows 11 edition change: the old snapshot is only deleted if
+	rem the merge actually succeeded. Previously a failed merge still
+	rem deleted snapshot.vhd, silently losing the changes.
 	rem
 	echo.
-	echo Found base image and snapshot files.  Merging files... (This can take a while,
-	echo and Diskpart will offer "100 percent" for progress information, BUT the wait
-	echo to finish merging the VHDs AFTER that "100 percent" message can be one to seven
-	echo minutes depending on disk speeds, memory, the volume of changes etc.)
+	echo Found base image and snapshot files. Merging files... This can
+	echo take a while; after Diskpart reports "100 percent" it may still
+	echo need several minutes to finish.
 
 :setup
-	rem
-	rem Delete automerge
-	rem
-	echo.
-	echo Deleting unneeded files
-	if exist mergesnaps.txt del mergesnaps.txt
+	set _mergerc=99
+	if not exist "%_phydrive%\image.vhd" (
+		echo ERROR: %_phydrive%\image.vhd not found.
+		goto :badend
+	)
+	if not exist "%_phydrive%\snapshot.vhd" (
+		echo ERROR: %_phydrive%\snapshot.vhd not found.
+		goto :badend
+	)
 
 :mergesnapshot
-	rem
-	rem Merge snapshot.vhd into image.vhd
-	rem
 	echo.
 	echo Merging snapshot.vhd into image.vhd
-	echo select vdisk file="%_phydrive%\snapshot.vhd" >mergesnaps.txt
-	echo merge vdisk depth=1 >>mergesnaps.txt
-	echo exit >>mergesnaps.txt
-	diskpart /s mergesnaps.txt
-	del mergesnaps.txt
+	>%_actdrive%\mergesnaps.txt  echo select vdisk file="%_phydrive%\snapshot.vhd"
+	>>%_actdrive%\mergesnaps.txt echo merge vdisk depth=1
+	>>%_actdrive%\mergesnaps.txt echo exit
+	diskpart /s %_actdrive%\mergesnaps.txt
+	set _mergedprc=%errorlevel%
+	del %_actdrive%\mergesnaps.txt 2>nul
+	if not %_mergedprc%==0 (
+		echo.
+		echo ERROR: Diskpart merge failed ^(rc=%_mergedprc%^). snapshot.vhd has
+		echo been left in place so nothing is lost. Investigate before
+		echo rebooting.
+		goto :badend
+	)
 
 :deletesnapshot
 	echo.
 	echo Deleting old snapshot...
-	del %_phydrive%\snapshot.vhd
+	del "%_phydrive%\snapshot.vhd"
+	if exist "%_phydrive%\snapshot.vhd" (
+		echo ERROR: could not delete the old snapshot.vhd.
+		goto :badend
+	)
 
 :makesnapshot
-	rem
-	rem Make snapshot.vhd
-	rem
 	echo.
-	echo Making a new copy of snapshot.vhd
-	del makesnapshot.txt
-	echo create vdisk file="%_phydrive%\snapshot.vhd" parent="%_phydrive%\image.vhd" > makesnapshot.txt
-	echo exit >>makesnapshot.txt
-	diskpart /s makesnapshot.txt
-	del makesnapshot.txt
+	echo Making a new snapshot.vhd
+	>%_actdrive%\makesnapshot.txt  echo create vdisk file="%_phydrive%\snapshot.vhd" parent="%_phydrive%\image.vhd"
+	>>%_actdrive%\makesnapshot.txt echo exit
+	diskpart /s %_actdrive%\makesnapshot.txt
+	set _makesnaprc=%errorlevel%
+	del %_actdrive%\makesnapshot.txt 2>nul
+	if not %_makesnaprc%==0 (
+		echo ERROR: Diskpart couldn't create the new snapshot.vhd.
+		goto :badend
+	)
 
 :bcdcheck
-	rem
-	rem What I'm about to do is to take the output of the "bcdedit"
-	rem command looking for the string "snapshot.vhd."  If I find it,
-	rem I'm assuming that we already have a boot-from-VHD entry in the
-	rem BCD that tries to boot from [%_phydrive%]\snapshot.vhd, and in
-	rem that case, we simply set it as the default.
-	rem
 	echo.
 	echo Setting the snapshot.vhd BCD entry as default
 	for /f "delims=" %%a in ('bcdedit %_bcdstore% /enum /v') do (
-		for /f "tokens=1,2" %%b in ('echo %%a') do (
-			if %%b==identifier (
+		for /f "tokens=1,2" %%b in ("%%a") do (
+			if "%%b"=="identifier" (
 				set _guid=%%c
-				bcdedit %_bcdstore% /enum !_guid! /v | find /c "snapshot.vhd" >%_actdrive%\temp.txt
-				set _total=
-				set /p _total= <%_actdrive%\temp.txt
-				del %_actdrive%\temp.txt 2>nul
-				if not !_total!==0 (
+				bcdedit %_bcdstore% /enum !_guid! /v | find /i "snapshot.vhd" >nul
+				if !errorlevel!==0 (
 					bcdedit %_bcdstore% /default !_guid!
 					goto :goodend
 				)
 			)
 		)
 	)
+	echo.
+	echo WARNING: no snapshot.vhd boot entry was found. Run "rollback" to
+	echo create one before rebooting.
+	goto :badend
 
 :goodend
-	rem
-	rem Success
-	rem
 	echo.
-	echo Complete. Image.vhd now contains the old snapshot's
-	echo information, and that information cannot be lost by a future
-	echo rollback. It's safe to reboot now.
+	echo Complete. image.vhd now contains the old snapshot's changes, and
+	echo they cannot be lost by a future rollback. It's safe to reboot now.
 	set _mergerc=0
 	goto :end
 
 :badend
-	rem
-	rem Something failed
-	rem
 	set _mergerc=99
 	goto :end
 
 :end
-	rem
-	rem Final message before exiting merge.cmd
-	rem
 	echo.
-	echo This copy of SteadierState has been updated to work with
-	echo Windows 7, 8, 8.1 and 10. The source can be found at
+	echo Steadier State for Windows 11 - based on
 	echo https://github.com/7heMC/SteadierState
 	echo.
-	echo Exiting...

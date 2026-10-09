@@ -11,7 +11,7 @@
 	if exist %systemdrive%\srs\temp.txt del %systemdrive%\srs\temp.txt /y 2>nul
 	for /f "delims=" %%a in ('bcdedit /enum /v') do (
 		for /f "tokens=1,2" %%b in ('echo %%a') do (
-			if %%b==identifier (
+			if "%%b"=="identifier" (
 				set _guid=%%c
 				bcdedit /enum !_guid! /v | find /c "image.vhd" >%systemdrive%\srs\temp.txt
 				set _total=

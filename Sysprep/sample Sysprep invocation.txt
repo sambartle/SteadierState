@@ -1,20 +1,22 @@
-To Sysprep a working Windows 7 system:
+To Sysprep a Windows 11 reference PC for Steadier State:
 
-1) Log onto the system as an administrator.
-2) Open an elevated command prompt (right-click Command Prompt, choose Run as Administrator, confirm the UAC prompt).
-3) navigate to \windows\system32\sysprep.  As you enter the command prompt at \windows\system32, in most cases you just type
+Easiest: run prepref.cmd (in the root of this repository) from an elevated
+command prompt. It checks UEFI, edition, BitLocker, hibernation and then
+offers to run Sysprep with unattend-win11.xml.
 
-cd sysprep
+Manually:
 
+1) Log on as an administrator and open an elevated command prompt.
+2) Make sure BitLocker / Device Encryption is OFF:
+       manage-bde -status C:          (must say "Fully Decrypted")
+       manage-bde -off C:             (if it doesn't, then wait)
+3) Run:
+       %windir%\System32\Sysprep\sysprep.exe /generalize /oobe /shutdown /unattend:G:\Sysprep\unattend-win11.xml
+   where G: is wherever this folder lives.
+4) If Sysprep fails, read %windir%\System32\Sysprep\Panther\setuperr.log.
+   The common Windows 11 cause is a per-user Store app; remove it with
+       powershell "Get-AppxPackage -AllUsers *AppName* | Remove-AppxPackage -AllUsers"
+   and run Sysprep again.
 
-4) Locate the XML file sysprep64.xml or sysprep32.xml.  Let's say that it's on drive G:\.
-
-5) Type
-
-sysprep /oobe /generalize /shutdown /unattend:g:\sysprepXX.xml
-
-Where "XX" is either "32" or "64," depending on which architecture you're using.
-
-6) Wait for Sysprep to finish running.
-
-DO NOT LET THE SYSTEM BOOT FROM THE HARD DISK at this point.  Boot it from a Steadier State USB stick.
+DO NOT LET THE SYSTEM BOOT FROM THE HARD DISK after Sysprep shuts it down.
+Boot it from the Steadier State USB stick and run cvt2vhd.

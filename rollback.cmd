@@ -42,7 +42,7 @@
 	rem 3) Computer must have been booted from that on-disk WinPE so
 	rem    that it's running on X:
 	rem 4) PC must have the Steadier State support files on x:\srs
-	rem 5) image.vhd, Win 7, 8, 8.1 or 10 image, must be in the root of
+	rem 5) image.vhd, a Windows 11 image, must be in the root of
 	rem    the physical drive
 	rem 6) If you've run this before, then it'll wipe
 	rem    %_phydrive%\snapshot.vhd. If you have not, it will create the
@@ -59,6 +59,10 @@
 	echo.
 	echo Deleting the current snapshot if it exists
 	if exist %_phydrive%\snapshot.vhd del %_phydrive%\snapshot.vhd 2>nul
+	if exist %_phydrive%\snapshot.vhd (
+		echo ERROR: unable to delete the old snapshot.vhd ^(is it in use?^)
+		goto :badend
+	)
 
 :makesnapshot
 	rem
@@ -97,7 +101,7 @@
 	echo Looking to see if a new BCD entry is necessary...
 	for /f "delims=" %%a in ('bcdedit %_bcdstore% /enum /v') do (
 		for /f "tokens=1,2" %%b in ('echo %%a') do (
-			if %%b==identifier (
+			if "%%b"=="identifier" (
 				set _guid=%%c
 				bcdedit %_bcdstore% /enum !_guid! /v | find /c "snapshot.vhd" >%_actdrive%\temp.txt
 				set _total=
@@ -121,14 +125,14 @@
 	echo No BCD entries currently to boot from snapshot.vhd, so we'll create one...
 	set _guid=
 	if %_noauto%==false (
-		for /f "tokens=2 delims={}" %%a in ('bcdedit %_bcdstore% /create /d "Snapshot" /application osloader') do (set _guid={%%a})
+		for /f "tokens=2 delims={}" %%a in ('bcdedit %_bcdstore% /create /d "Windows 11 (Steadier State)" /application osloader') do (set _guid={%%a})
 		if '!_guid!'=='' goto :badend
 		bcdedit %_bcdstore% /set !_guid! device vhd=[%_phydrive%]\snapshot.vhd >nul
 		bcdedit %_bcdstore% /set !_guid! osdevice vhd=[%_phydrive%]\snapshot.vhd >nul
 		bcdedit %_bcdstore% /set !_guid! path %_winload% >nul
 		bcdedit %_bcdstore% /set !_guid! inherit {bootloadersettings} >nul
 		bcdedit %_bcdstore% /set !_guid! recoveryenabled no >nul
-		bcdedit %_bcdstore% /set !_guid! systemroot \windows	 >nul
+		bcdedit %_bcdstore% /set !_guid! systemroot \windows >nul
 		bcdedit %_bcdstore% /set !_guid! nx OptIn >nul
 		bcdedit %_bcdstore% /set !_guid! detecthal yes >nul
 		bcdedit %_bcdstore% /displayorder !_guid! /addlast >nul
@@ -137,7 +141,7 @@
 		goto :goodend
 	) else (
 		echo on
-		for /f "tokens=2 delims={}" %%a in ('bcdedit %_bcdstore% /create /d "Snapshot" /application osloader') do (set _guid={%%a})
+		for /f "tokens=2 delims={}" %%a in ('bcdedit %_bcdstore% /create /d "Windows 11 (Steadier State)" /application osloader') do (set _guid={%%a})
 		@echo off
 		if '!_guid!'=='' (
 			echo.
@@ -184,7 +188,7 @@
 	rem
 	echo.
 	echo This copy of SteadierState has been updated to work with
-	echo Windows 7, 8, 8.1 and 10. The source can be found at
+	echo Windows 11 / UEFI. Based on
 	echo https://github.com/7heMC/SteadierState
 	echo.
 	echo Exiting...

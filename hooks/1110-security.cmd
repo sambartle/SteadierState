@@ -14,17 +14,22 @@
 	rem install.
 	rem
 	rem First set set a local variable to hold the drive letter passed
-	set _phydrivepassed=%1
+	set _phydrivepassed=%~1
+	if "%_phydrivepassed%"=="" set _phydrivepassed=%_phydrive%
 	echo.
 	echo Attempting to set some security on \srs and %_phydrivepassed%:\srsdirectives folders and files.
 	rem We can assume that the srs folder is on same drive as we are running from
 	echo Dropping inheritance on \srs folder...
-	icacls \srs /inheritance:d
+	icacls %systemdrive%\srs /inheritance:d
 	echo Dropping access for Authenticated Users group on \srs folder...
-	icacls \srs /remove "Authenticated Users"
+	icacls %systemdrive%\srs /remove "Authenticated Users"
 	echo Dropping access for Users on \srs folder...
-	icacls \srs /remove "Users"
+	icacls %systemdrive%\srs /remove "Users"
 	echo.
+	if "%_phydrivepassed%"=="" (
+		echo No Physical Drive letter available; skipping srsdirectives.
+		goto :goodend
+	)
 	if exist %_phydrivepassed%:\srsdirectives (
 		echo %_phydrivepassed%:\srsdirectives already exists.
 	) else (

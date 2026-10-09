@@ -28,26 +28,20 @@ wpeinit
 
 :bioscheck
 	rem
-	rem Use wpeutil and reg to find out if PE was booted using bios/uefi
+	rem Windows 11 edition: UEFI only.
 	rem
-	wpeutil UpdateBootInfo
-	for /f "tokens=1-3" %%a in ('reg query HKLM\System\CurrentControlSet\Control /v PEFirmwareType') DO set _firmware=%%c
-	if %_firmware%==0x1 (
-		echo The system was booted in BIOS mode.
-		set _firmware=bios
-		set _winload=\windows\system32\boot\winload.exe
-		set _bcdstore=
-		goto :findphynum
-	)
-	if %_firmware%==0x2 (
+	wpeutil UpdateBootInfo >nul
+	set _firmware=
+	for /f "tokens=1-3" %%a in ('reg query HKLM\System\CurrentControlSet\Control /v PEFirmwareType 2^>nul') DO set _firmware=%%c
+	if '%_firmware%'=='0x2' (
 		echo The system was booted in UEFI mode.
 		set _firmware=uefi
 		set _winload=\windows\system32\boot\winload.efi
 		goto :findphynum
 	)
 	echo.
-	echo Unable to determine if the system was booted using BIOS or
-	echo UEFI. It is not safe to continue.
+	echo This system was not booted in UEFI mode ^(PEFirmwareType=%_firmware%^).
+	echo The Windows 11 edition of Steadier State only supports UEFI.
 	goto :badend
 
 :findphynum
@@ -57,20 +51,19 @@ wpeinit
 	echo.
 	echo Looking for the Physical Drive Partition
 	for /f "tokens=2-4" %%a in ('diskpart /s %_actdrive%\srs\listvolume.txt') do (
-		if %%b==Physical_Dr (
+		if "%%b"=="Physical_Dr" (
 			set _phynum=%%a
 			echo.
 			echo The Physical Drive Partition has not yet been assigned a drive
 			echo letter. We will find one that's available and assign it.
 			goto :findphydrive
 		)
-		if %%c==Physical_Dr (
+		if "%%c"=="Physical_Dr" (
 			set _phydrive=%%b:
 			echo.
 			echo The Physical Drive Partition was automatically assigned a drive
 			echo letter and is using %%b:
-			if %_firmware%==bios goto :vhdcheck
-			if %_firmware%==uefi goto :findefinum
+			goto :findefinum
 		)
 	)
 	echo.
@@ -123,8 +116,7 @@ wpeinit
 		echo using %_phydrive%:
 		set _phydrive=%_phydrive%:
 		del %_actdrive%\mountphy.txt
-		if %_firmware%==bios goto :vhdcheck
-		if %_firmware%==uefi goto :findefinum
+		goto :findefinum
 	)
 	echo.
 	echo Diskpart failed to mount the Physical Drive Partition, return
@@ -140,13 +132,19 @@ wpeinit
 	rem
 	echo.
 	echo Looking for the SYSTEM_UEFI partition
-	for /f "tokens=2,3" %%a in ('diskpart /s %_actdrive%\srs\listvolume.txt') do (
-		if %%b==SYSTEM_UEFI (
+	for /f "tokens=2-4" %%a in ('diskpart /s %_actdrive%\srs\listvolume.txt') do (
+		if "%%b"=="SYSTEM_UEFI" (
 			set _efinum=%%a
 			echo.
 			echo The SYSTEM_UEFI Partition has not yet been assigned a drive
 			echo letter. We will find one that's available and assign it.
 			goto :findefidrive
+		)
+		if "%%c"=="SYSTEM_UEFI" (
+			echo The SYSTEM_UEFI Partition is already using %%b:
+			set "_bcdstore=/store %%b:\EFI\Microsoft\Boot\BCD"
+			set _efidrive=%%b:
+			goto :vhdcheck
 		)
 	)
 	set _efinumrc=%errorlevel%
@@ -289,7 +287,7 @@ wpeinit
 	echo prepnewpc.cmd before going any further.
 	echo.
 	echo If you DON'T have an image.vhd yet, it's easy to make one. Just
-	echo get a Windows 7, 8, 8.1, or 10 machine exactly as you want it,
+	echo get a Windows 11 Pro/Enterprise/Education machine exactly as you want it,
 	echo then boot that system with your Steadier State USB/DVD.  Run
 	echo the command "cvt2vhd" and follow the instructions that'll
 	echo appear on the screen. Once you've got your image.vhd copied to
@@ -327,7 +325,7 @@ wpeinit
 	rem
 	rem otherwise, delete noauto.txt and offer options
 	rem
-	del %_noafile%
+	if defined _noafile del "%_noafile%" 2>nul
 	echo.
 	echo Hi.  You're here because you booted your system to the "Roll
 	echo Back Windows" Partition and had a noauto.txt file located at
@@ -347,8 +345,8 @@ wpeinit
 	echo Type anything else to exit this script and use the command prompt.
 	set /p _response=What is your answer? 
 	if '%_response%'=='' goto :end
-	if %_response%==merge goto :merge
-	if %_response%==rollback goto :rollback
+	if '%_response%'=='merge' goto :merge
+	if '%_response%'=='rollback' goto :rollback
 	goto :end
 
 :rollback
@@ -406,6 +404,11 @@ wpeinit
 	echo -- Mark Minasi help@minasi.com www.steadierstate.com
 	goto :end
 
+:notwinpe
+	echo.
+	echo startnet.cmd for the on-disk Steadier State WinPE must run from X:.
+	goto :end
+
 :badend
 	rem
 	rem Something failed
@@ -423,7 +426,7 @@ wpeinit
 	endlocal
 	echo.
 	echo This copy of SteadierState has been updated to work with
-	echo Windows 7, 8, 8.1 and 10. The source can be found at
+	echo Windows 11 / UEFI. Based on
 	echo https://github.com/7heMC/SteadierState
 	echo.
 	echo Exiting...
