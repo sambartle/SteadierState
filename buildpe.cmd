@@ -146,7 +146,7 @@
 	echo firstrun.cmd, listvolume.txt, merge.cmd, prepnewpc.cmd,
 	echo rollback.cmd and startnethd.cmd, or type 'end' to exit.
 	set /p _srspath=Folder:
-	if '%_srspath%'=='end' goto :end
+	if /i "%_srspath%"=="end" goto :end
 
 :filescheck
 	echo.
@@ -431,7 +431,7 @@
 
 :cleanup
 	cd /d "%_logdir%" 2>nul
-	if not '%_buildpepath%'=='' if exist "%_buildpepath%" rd "%_buildpepath%" /s /q
+	if defined _buildpepath if exist "%_buildpepath%\" rd /s /q "%_buildpepath%"
 	exit /b
 
 :end

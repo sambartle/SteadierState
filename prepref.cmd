@@ -84,9 +84,23 @@
 		goto :hibernate
 	)
 	manage-bde -off %systemdrive%
+	if not %errorlevel%==0 (
+		echo       manage-bde -off failed. Remove auto-unlock keys / resume
+		echo       BitLocker, or decrypt from Settings, then run this again.
+		set /a _problems+=1
+		goto :hibernate
+	)
+	set _bdeloops=0
 
 :bdewait
 	timeout /t 30 /nobreak >nul
+	set /a _bdeloops+=1
+	if %_bdeloops% GTR 720 (
+		echo       Still not decrypted after 6 hours - giving up. Check
+		echo       "manage-bde -status" and run prepref.cmd again later.
+		set /a _problems+=1
+		goto :hibernate
+	)
 	manage-bde -status %systemdrive% | find /i "Fully Decrypted" >nul
 	if %errorlevel%==0 (
 		echo       Fully Decrypted - OK
@@ -132,7 +146,7 @@
 	echo Store app installed for one user but not provisioned. Details:
 	echo   %windir%\System32\Sysprep\Panther\setuperr.log
 	echo Look for "SYSPRP Package ... was installed for a user" and remove
-	echo that app with:  powershell "Get-AppxPackage -AllUsers *Name* ^| Remove-AppxPackage -AllUsers"
+	echo that app with:  powershell "Get-AppxPackage -AllUsers *Name* | Remove-AppxPackage -AllUsers"
 	goto :end
 
 :next

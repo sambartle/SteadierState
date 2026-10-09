@@ -24,7 +24,7 @@
 		if "%%b"=="Physical_Dr" (
 			echo.
 			echo The Physical Drive Partition has no drive letter. Hooks that
-			echo need it (e.g. 1110-security) will be skipped by those hooks.
+			echo need it ^(e.g. 1110-security^) will be skipped by those hooks.
 			goto :bcdtask
 		)
 		if "%%c"=="Physical_Dr" (

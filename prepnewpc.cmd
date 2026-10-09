@@ -60,8 +60,8 @@
 	echo example E: or E:\images. You can also type 'end' to quit.
 	set _extdrive=
 	set /p _extdrive=What is your response?
-	if '%_extdrive%'=='end' goto :end
-	if '%_extdrive%'=='' goto :extdrivequestion
+	if /i "%_extdrive%"=="end" goto :end
+	if "%_extdrive%"=="" goto :extdrivequestion
 	if "%_extdrive:~-1%"=="\" set "_extdrive=%_extdrive:~0,-1%"
 	if not exist "%_extdrive%\image.vhd" (
 		echo.
@@ -79,9 +79,15 @@
 	set _usbdrive=
 	for /f "tokens=3,4" %%a in ('diskpart /s %_actdrive%\srs\listvolume.txt') do (if /i "%%b"=="WINPE" set _usbdrive=%%a:)
 	if '%_usbdrive%'=='' (
+		rem ISO media may not carry the WINPE label; look for boot.wim
+		for %%a in (C D E F G H I J K L M N O P Q R S T U V W Y Z) do (
+			if not defined _usbdrive if exist %%a:\sources\boot.wim if exist %%a:\EFI\Boot\bootx64.efi set _usbdrive=%%a:
+		)
+	)
+	if '%_usbdrive%'=='' (
 		echo.
-		echo Unable to find any mounted volume named "WINPE", so the real
-		echo drive letter of the USB/ISO was not found. Please run this from
+		echo Unable to find the Steadier State boot media ^(a volume labelled
+		echo WINPE, or one holding \sources\boot.wim^). Please run this from
 		echo media built by buildpe.cmd.
 		goto :badend
 	)
@@ -103,8 +109,8 @@
 	echo ===============================================================
 	echo Which disk should I WIPE and install Steadier State on?
 	echo.
-	echo list disk>%_actdrive%\listdisk.txt
-	echo exit>>%_actdrive%\listdisk.txt
+	>%_actdrive%\listdisk.txt  echo list disk
+	>>%_actdrive%\listdisk.txt echo exit
 	diskpart /s %_actdrive%\listdisk.txt | findstr /r /c:"Disk [0-9]" /c:"Disk ###"
 	echo.
 	set _disknum=
@@ -116,9 +122,9 @@
 		echo That isn't a number. Let's try again.
 		goto :diskquestion
 	)
-	echo select disk %_disknum%>%_actdrive%\detaildisk.txt
-	echo detail disk>>%_actdrive%\detaildisk.txt
-	echo exit>>%_actdrive%\detaildisk.txt
+	>%_actdrive%\detaildisk.txt  echo select disk %_disknum%
+	>>%_actdrive%\detaildisk.txt echo detail disk
+	>>%_actdrive%\detaildisk.txt echo exit
 	diskpart /s %_actdrive%\detaildisk.txt >%_actdrive%\detaildisk.out
 	findstr /i /c:"There is no disk selected" /c:"The disk you specified is not valid" %_actdrive%\detaildisk.out >nul
 	if %errorlevel%==0 (
@@ -146,7 +152,7 @@
 :warnings
 	echo.
 	echo ===============================================================
-	echo        W A R N I N G !!!!!!       W A R N I N G !!!!!!
+	echo        W A R N I N G       W A R N I N G       W A R N I N G
 	echo ===============================================================
 	echo.
 	echo This WIPES DISK %_disknum% (shown above) COMPLETELY and converts
@@ -229,7 +235,7 @@
 	set _efidrive=%_efidrive%:
 	set _srsdrive=%_srsdrive%:
 	set _phydrive=%_phydrive%:
-	echo All diskpart phases completed successfully!
+	echo All diskpart phases completed successfully.
 
 :applywim
 	echo.
@@ -264,7 +270,10 @@
 		goto :badend
 	)
 	set _volnum=
-	for /f "tokens=2,4" %%a in ('diskpart /s %_actdrive%\srs\listvolume.txt') do (if "%%b"=="Windows_SrS" set _volnum=%%a)
+	for /f "tokens=2-4" %%a in ('diskpart /s %_actdrive%\srs\listvolume.txt') do (
+		if "%%b"=="Windows_SrS" set _volnum=%%a
+		if "%%c"=="Windows_SrS" set _volnum=%%a
+	)
 	if '%_volnum%'=='' (
 		echo Unable to find the volume labelled "Windows_SrS" inside
 		echo image.vhd. Was it made with cvt2vhd?

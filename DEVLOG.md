@@ -56,3 +56,17 @@
 5. Boot the master, finish OOBE, run `C:\srs\firstrun.cmd` and reboot. Check snapshot.vhd is created and Windows boots from it.
 6. Make a change, reboot, and confirm it is rolled back. Test the `noauto` and `automerge` directives. Test that a forced merge failure keeps snapshot.vhd.
 7. Repeat on one physical NVMe PC with USB boot.
+
+## 2026-10-09 - Review pass (independent static review of the batch files)
+
+Fixed:
+- **prepnewpc.cmd:** `echo select disk 1>file` was read as a handle-1 redirect, so disks 0-9 were always "not found". The redirect now goes before `echo` (same for the list disk script).
+- **cvt2vhd.cmd / firstrun.cmd:** an unescaped `)` in an `echo` inside an `if` block ended the block early, so the script stopped with a syntax error on every run. Escaped as `^(` `^)`.
+- **buildpe.cmd:** cleanup crashed if %TEMP% had a space in it. It now uses `if defined` and quotes.
+- Typed path answers are now compared in double quotes, so paths with spaces don't crash the script (prepnewpc, cvt2vhd, buildpe).
+- **prepnewpc.cmd:** an ISO boot may have no WINPE label, so if none is found it falls back to any volume with `\sources\boot.wim` + `\EFI\Boot\bootx64.efi`.
+- **prepnewpc.cmd:** the Windows_SrS volume lookup now works whether or not WinPE gave the VHD volume a letter (tokens 2-4).
+- **prepref.cmd:** checks the manage-bde -off result and stops waiting for decryption after 6 hours. The PowerShell hint no longer prints a literal `^|`.
+- Removed `!` from echo text in the scripts that use delayed expansion (it was being swallowed).
+
+Added a static checker (run locally in the session, not committed): every goto/call target exists, brackets balance, and no echo inside a block has an unescaped `)`.

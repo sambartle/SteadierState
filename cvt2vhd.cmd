@@ -44,8 +44,8 @@
 	echo have given it a different letter than Windows does. 'end' quits.
 	set _imgdrive=
 	set /p _imgdrive=Drive:
-	if '%_imgdrive%'=='end' goto :end
-	if '%_imgdrive%'=='' goto :imgdrivequestion
+	if /i "%_imgdrive%"=="end" goto :end
+	if "%_imgdrive%"=="" goto :imgdrivequestion
 	set _imgdrive=%_imgdrive:~0,2%
 	if not exist %_imgdrive%\ (
 		echo.
@@ -123,7 +123,7 @@
 		echo.
 		echo Note: this Windows install has NOT been generalized with
 		echo Sysprep. That's fine if you only deploy it back to this same
-		echo PC, but for other PCs run Sysprep first (see the Sysprep folder).
+		echo PC, but for other PCs run Sysprep first ^(see the Sysprep folder^).
 	)
 
 :extdrivequestion
@@ -135,8 +135,8 @@
 	echo E:\images.
 	set _extdrive=
 	set /p _extdrive=What is your response?
-	if '%_extdrive%'=='end' goto :end
-	if '%_extdrive%'=='' goto :extdrivequestion
+	if /i "%_extdrive%"=="end" goto :end
+	if "%_extdrive%"=="" goto :extdrivequestion
 	if "%_extdrive:~-1%"=="\" set "_extdrive=%_extdrive:~0,-1%"
 	set _extdriveletter=%_extdrive:~0,2%
 	if not exist %_extdriveletter%\ (

@@ -315,7 +315,7 @@ wpeinit
 	rem
 	echo.
 	echo Automatically merging snapshot.vhd and image.vhd
-	echo System will reboot automatically when done!
+	echo System will reboot automatically when done.
 	del %_amfile% 2>nul
 	call merge.cmd
 	if %_mergerc%==0 exit
