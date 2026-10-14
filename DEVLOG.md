@@ -117,3 +117,9 @@ Logs go to `%TEMP%\srs-setbackground\`. Statically checked (labels, brackets). N
 - All calls use full paths: `call X:\srs\rollback.cmd` and `call X:\srs\merge.cmd`.
 - `_rollbackrc` and `_mergerc` are set to 99 before each call and compared in quotes, so a failed call can never crash the script or be taken as success.
 **Live fix on a deployed PC:** the on-disk WinPE's startnet.cmd is X:\Windows\System32\startnet.cmd on the SrS_Tools partition, so edits made there in Notepad persist across reboots.
+
+## 2026-10-14 - Fix: manual rollback prompt mentioned merging
+
+**Reported by Sam:** with noauto, choosing `rollback` showed a confirmation telling you to press 'y' "to merge".
+**Cause:** the merge prompt's wording had been copied into the rollback prompt in the original project. The behaviour was already correct: 'y' at that prompt runs rollback.cmd.
+**Fix:** reworded the rollback confirmation in startnethd.cmd. It now says the snapshot's changes are discarded and that 'y' means ROLL BACK. The merge prompt was checked and is correct.

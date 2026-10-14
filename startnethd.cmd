@@ -357,12 +357,11 @@ wpeinit
 	rem User chose to rollback
 	rem
 	echo.
-	echo Warning: This will rollback any changes in your current
-	echo snapshot (snapshot.vhd) and replace it with your base image
-	echo (image.vhd). This change isn't reversible, so I'm just double-
-	echo checking to see that you mean it. Please enter 'y' and press
-	echo enter to merge, or type anything else and press enter to change
-	echo your mind and NOT rollback the files.
+	echo Warning: ROLLBACK discards every change made since the last
+	echo snapshot. snapshot.vhd is deleted and replaced with a fresh,
+	echo empty one, so Windows returns to the state stored in image.vhd.
+	echo This can't be undone. Type 'y' and press Enter to ROLL BACK, or
+	echo type anything else and press Enter to cancel and keep your changes.
 	set /p _confirm=What is your response? 
 	if not '%_confirm%'=='y' goto :end
 	echo.
