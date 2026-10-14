@@ -123,3 +123,24 @@ Logs go to `%TEMP%\srs-setbackground\`. Statically checked (labels, brackets). N
 **Reported by Sam:** with noauto, choosing `rollback` showed a confirmation telling you to press 'y' "to merge".
 **Cause:** the merge prompt's wording had been copied into the rollback prompt in the original project. The behaviour was already correct: 'y' at that prompt runs rollback.cmd.
 **Fix:** reworded the rollback confirmation in startnethd.cmd. It now says the snapshot's changes are discarded and that 'y' means ROLL BACK. The merge prompt was checked and is correct.
+
+## 2026-10-14 - debugmode.cmd and restore2disk.cmd (video driver debugging)
+
+**Request (Sam):** a way to undo cvt2vhd / get the image back onto the machine to debug its video driver. Chose **both** an in-place option and a full restore, restoring the **master image** (image.wim/.vhd).
+
+**debugmode.cmd** (new; goes in C:\srs inside the image and in \srs on the stick):
+- `on`: disables the `bcddefault` ONSTART task and runs `bcdedit /default {current}` (the task already pointed this boot's default at Roll Back Windows). Reboots then stay in the snapshot with changes kept.
+- `off`: re-enables the task and runs bcddefault.cmd, so the next reboot rolls back.
+- `keep`: writes `\srsdirectives\automerge.txt` on the Physical Drive and re-enables the task, so the next reboot merges.
+- no argument: shows the current state.
+
+**restore2disk.cmd** (new; WinPE, root of the stick, the reverse of cvt2vhd + prepnewpc):
+- The source is image.wim or image.vhd on an external drive. A VHD is attached read-only and its Windows_SrS volume captured to a temporary restore-temp.wim next to it, which is deleted afterwards.
+- It uses the same disk selection and refusals as prepnewpc (won't wipe the boot media's disk or the source's disk) and the same "wipe" confirmation. It only uses `find`, not findstr.
+- GPT layout: EFI 260MB, MSR 16MB, Windows on the rest of the disk. Then DISM apply and `bcdboot /f UEFI`.
+- Clean-up: deletes the NoDrives policy from the offline SOFTWARE hive and removes \srs. The bcddefault task (if present) is harmless and the script prints the command to delete it.
+- WinRE isn't recreated. That's fine for debugging.
+
+Both are wired into buildpe.cmd (copy lists and startnet banner) and prepnewpc.cmd (debugmode is copied into the VHD's \srs). The README is updated. Statically checked (labels, brackets, no findstr). Not run on hardware yet.
+
+**Note for Sam's current PC:** it was deployed before these existed. Copy debugmode.cmd into C:\srs by hand. If the PC is rolling back, it also needs to go into image.vhd (via `debugmode keep` or a merge), or it'll vanish on the next rollback.

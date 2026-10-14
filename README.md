@@ -123,6 +123,12 @@ To provide an understanding of how these **Directives** can be used please exami
   6. In the Command Prompt window opened in **step 3.**, run the following command `C:\srs\bcddefault.cmd`.
   7. Reboot the PC and the next boot should be to WindowsPE with the "*automerge*" directive.
 
+### Debugging without losing changes on reboot (debugmode)
+`C:\srs\debugmode.cmd on` (elevated) pauses Roll Back Mode, so reboots keep changes, e.g. while debugging drivers. `debugmode off` makes the next reboot roll everything back, and `debugmode keep` merges the changes into image.vhd instead.
+
+### Going back to a normal install (restore2disk)
+Boot the USB stick and run `restore2disk`. It wipes the disk you choose and applies `image.wim` (left by cvt2vhd) or `image.vhd` from an external drive as a normal, non-VHD Windows install.
+
 ### WinPE backgrounds
 `background\usb.jpg` is the desktop of the USB stick / ISO WinPE, and `background\disk.jpg` is the desktop of the on-disk "Roll Back Windows" WinPE. To change them, replace either JPG and re-run `buildpe.cmd`. To update things that already exist without rebuilding, run `setbackground.cmd` elevated in Windows: it updates this PC's hidden SrS_Tools WinPE (`disk.jpg`) and/or patches `sources\boot.wim` on an existing USB stick (`usb.jpg`).
 

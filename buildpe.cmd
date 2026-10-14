@@ -362,8 +362,8 @@
 	echo.
 	echo Copying Steadier State scripts into the image...
 	md "%_buildpepath%\mount\srs" >nul 2>&1
-	for %%f in (bcddefault.cmd firstrun.cmd listvolume.txt merge.cmd rollback.cmd) do copy "%_srspath%\%%f" "%_buildpepath%\mount\srs" /y >nul
-	for %%f in (cvt2vhd.cmd prepnewpc.cmd startnethd.cmd) do copy "%_srspath%\%%f" "%_buildpepath%\mount" /y >nul
+	for %%f in (bcddefault.cmd debugmode.cmd firstrun.cmd listvolume.txt merge.cmd rollback.cmd) do copy "%_srspath%\%%f" "%_buildpepath%\mount\srs" /y >nul
+	for %%f in (cvt2vhd.cmd prepnewpc.cmd restore2disk.cmd startnethd.cmd) do copy "%_srspath%\%%f" "%_buildpepath%\mount" /y >nul
 	md "%_buildpepath%\mount\srs\hooks" >nul 2>&1
 	copy "%_srspath%\hooks\*.cmd" "%_buildpepath%\mount\srs\hooks" /y >nul
 	md "%_buildpepath%\mount\srs\hooks-samples" >nul 2>&1
@@ -380,6 +380,7 @@
 	>>"%_sn%" echo @echo.
 	>>"%_sn%" echo @echo   prepnewpc - wipe a disk, install the on-disk WinPE and deploy image.vhd
 	>>"%_sn%" echo @echo   cvt2vhd   - capture this PC's Windows 11 drive into image.vhd
+	>>"%_sn%" echo @echo   restore2disk - put image.wim/.vhd back on a disk as normal Windows
 	>>"%_sn%" echo @echo.
 	>>"%_sn%" echo @echo Steadier State originally by Mark Minasi, www.steadierstate.com
 	>>"%_sn%" echo @echo Windows 10 port: https://github.com/7heMC/SteadierState
