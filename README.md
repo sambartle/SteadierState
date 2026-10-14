@@ -129,7 +129,7 @@ To provide an understanding of how these **Directives** can be used please exami
 |---|---|---|---|
 | 1 | EFI System (`SYSTEM_UEFI`) | 260 MB | Boot manager and BCD |
 | 2 | MSR | 16 MB | Microsoft reserved |
-| 3 | `SrS_Tools` (Windows RE type, hidden) | 1 GB | On-disk WinPE: "Roll Back Windows" |
+| 3 | `SrS_Tools` (Windows RE type, hidden) | 3 GB | On-disk WinPE: "Roll Back Windows" |
 | 4 | `Physical_Drive` | Rest of disk | `image.vhd`, `snapshot.vhd`, `\srsdirectives` |
 
 ## Hooks

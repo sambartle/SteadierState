@@ -23,7 +23,7 @@
 | File | Change |
 |---|---|
 | `buildpe.cmd` | amd64 only. Checks the ADK **and** the WinPE add-on. Downloads/installs both with `curl.exe` (silent) if missing. Admin check uses the High Mandatory SID (S-1-16-12288), which doesn't depend on the language. Adds WinPE-WMI + WinPE-SecureStartup (so `manage-bde` works in PE). Optional `/bootex` (2023-signed boot manager), only offered if this ADK's MakeWinPEMedia supports it. Refuses the system drive as the USB target. Quoted paths throughout. Removed the 32/64 question. |
-| `prepnewpc.cmd` | UEFI only (exits with an explanation on BIOS). **Asks for the disk number**, shows `detail disk`, and refuses the disk holding the WINPE media or image.vhd. Single GPT diskpart script: EFI 260MB (4Kn minimum), MSR 16MB, SrS_Tools 1GB (RE type, hidden), Physical_Drive rest. Checks that image.vhd exists before wiping. Robocopy success is now any rc < 8 (it used to accept only rc==1), with `/J` unbuffered copy. Checks the mounted VHD contains Windows. `bcdboot /f UEFI`, optional `/bootex`. Master entry renamed "Windows 11 (master image)". Detaches the VHD at the end. Fixed `if not %_wiperesponse%==wipe`, which crashed on empty input. |
+| `prepnewpc.cmd` | UEFI only (exits with an explanation on BIOS). **Asks for the disk number**, shows `detail disk`, and refuses the disk holding the WINPE media or image.vhd. Single GPT diskpart script: EFI 260MB (4Kn minimum), MSR 16MB, SrS_Tools 3GB (RE type, hidden; was 1GB, too small for Win11 WinPE), Physical_Drive rest. Checks that image.vhd exists before wiping. Robocopy success is now any rc < 8 (it used to accept only rc==1), with `/J` unbuffered copy. Checks the mounted VHD contains Windows. `bcdboot /f UEFI`, optional `/bootex`. Master entry renamed "Windows 11 (master image)". Detaches the VHD at the end. Fixed `if not %_wiperesponse%==wipe`, which crashed on empty input. |
 | `cvt2vhd.cmd` | BitLocker check with manage-bde (stops if not Fully Decrypted). Reads the offline registry for edition/build/version and refuses Home. Warns if not generalized (State.ini). Minimum 64GB / maximum 2000GB VHD size, converted correctly to MB (it used to append "000"). Refuses to store the image on the drive being captured. Temp diskpart scripts go on X:\ rather than the current directory. `/Compress:fast` capture. |
 | `startnethd.cmd` | UEFI only. Handles an EFI partition that already has a drive letter. Added the missing `:notwinpe` label (old bug). Quoted comparisons on FOR tokens so an empty token can't crash the script. Safe deletion of noauto.txt. |
 | `rollback.cmd` | Checks the old snapshot was actually deleted. New BCD entry description "Windows 11 (Steadier State)". Removed a stray tab. |
@@ -81,3 +81,11 @@ Added a static checker (run locally in the session, not committed): every goto/c
 - Checked every command the WinPE-side scripts call (prepnewpc, cvt2vhd, startnethd, rollback, merge). All are in WinPE: bcdboot, bcdedit, diskpart, find, reg, robocopy, wpeutil, and manage-bde (only with the WinPE-SecureStartup component, and the script checks for it first).
 - buildpe.cmd, prepref.cmd and the hooks run in full Windows, so findstr is fine there.
 **Action needed:** the scripts live inside boot.wim on the USB stick, so re-run buildpe.cmd to rebuild the stick.
+
+## 2026-10-14 - Fix: "not enough space" applying boot.wim
+
+**Reported by Sam:** prepnewpc failed at :applywim with "There is not enough space on the disk". He had a 175GB VHD and a 446GB disk.
+**Cause:** the SrS_Tools partition was 1024MB (carried over from the Win10 version). The Windows 11 ADK WinPE, plus WinPE-WMI and WinPE-SecureStartup, is bigger than that once expanded. The VHD size has nothing to do with this step.
+**Fix:** SrS_Tools is now 3072MB (3GB). Banner and README updated.
+**Live workaround:** edit `size=1024` to `size=3072` in X:\prepnewpc.cmd and re-run it. It re-partitions the disk, which is fine because nothing has been deployed to it yet.
+**To check:** `dism /Get-ImageInfo /ImageFile:<usb>:\sources\boot.wim /Index:1`. The "Size" field is the expanded size and must be under 3GB.

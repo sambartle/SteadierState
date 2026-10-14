@@ -9,7 +9,7 @@
 	echo every change made since the snapshot. PREPNEWPC prepares a PC:
 	echo.
 	echo  1. Wipes the disk you choose and lays out a GPT disk:
-	echo       EFI System (260MB) - MSR (16MB) - SrS_Tools WinPE (1GB)
+	echo       EFI System (260MB) - MSR (16MB) - SrS_Tools WinPE (3GB)
 	echo       - Physical_Drive (rest of disk, holds image.vhd)
 	echo  2. Installs WinPE onto SrS_Tools (the "Roll Back Windows" OS).
 	echo  3. Copies image.vhd (made with CVT2VHD) from external storage.
@@ -218,7 +218,7 @@
 	>>"%_dp%" echo format quick fs=fat32 label="SYSTEM_UEFI"
 	>>"%_dp%" echo assign letter=%_efidrive%
 	>>"%_dp%" echo create partition msr size=16
-	>>"%_dp%" echo create partition primary size=1024
+	>>"%_dp%" echo create partition primary size=3072
 	>>"%_dp%" echo format quick fs=ntfs label="SrS_Tools"
 	>>"%_dp%" echo assign letter=%_srsdrive%
 	>>"%_dp%" echo set id="de94bba4-06d1-4d40-a16a-bfd50179d6ac"
