@@ -123,6 +123,9 @@ To provide an understanding of how these **Directives** can be used please exami
   6. In the Command Prompt window opened in **step 3.**, run the following command `C:\srs\bcddefault.cmd`.
   7. Reboot the PC and the next boot should be to WindowsPE with the "*automerge*" directive.
 
+### WinPE backgrounds
+`background\usb.jpg` is the desktop of the USB stick / ISO WinPE, and `background\disk.jpg` is the desktop of the on-disk "Roll Back Windows" WinPE. To change them, replace either JPG and re-run `buildpe.cmd`.
+
 ### Disk layout created by prepnewpc (GPT)
 
 | # | Partition | Size | Purpose |

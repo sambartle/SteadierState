@@ -332,6 +332,32 @@
 	)
 	echo Optional components step finished (see 04aaddpkg.txt).
 
+:background
+	rem
+	rem WinPE (Windows 10/11) shows Windows\System32\winpe.jpg as its
+	rem desktop. It is owned by TrustedInstaller, so take ownership in
+	rem the mounted image before replacing it. usb.jpg is used for the
+	rem stick; disk.jpg rides along in \srs\background and prepnewpc
+	rem installs it on the SrS_Tools partition.
+	rem
+	set "_bg=%_buildpepath%\mount\Windows\System32\winpe.jpg"
+	if not exist "%_srspath%\background\usb.jpg" (
+		echo No background\usb.jpg found; keeping the default WinPE background.
+		goto :srscopy
+	)
+	echo.
+	echo Setting the WinPE desktop background
+	if exist "%_bg%" (
+		takeown /f "%_bg%" /a >>"%_logdir%\04bbackground.txt" 2>&1
+		icacls "%_bg%" /grant *S-1-5-32-544:F >>"%_logdir%\04bbackground.txt" 2>&1
+	)
+	copy /y "%_srspath%\background\usb.jpg" "%_bg%" >>"%_logdir%\04bbackground.txt" 2>&1
+	if errorlevel 1 (
+		echo WARNING: could not replace winpe.jpg - see 04bbackground.txt
+	) else (
+		echo Background set.
+	)
+
 :srscopy
 	echo.
 	echo Copying Steadier State scripts into the image...
@@ -342,6 +368,10 @@
 	copy "%_srspath%\hooks\*.cmd" "%_buildpepath%\mount\srs\hooks" /y >nul
 	md "%_buildpepath%\mount\srs\hooks-samples" >nul 2>&1
 	copy "%_srspath%\hooks-samples\*.cmd" "%_buildpepath%\mount\srs\hooks-samples" /y >nul
+	if exist "%_srspath%\background\disk.jpg" (
+		md "%_buildpepath%\mount\srs\background" >nul 2>&1
+		copy "%_srspath%\background\disk.jpg" "%_buildpepath%\mount\srs\background\winpe.jpg" /y >nul
+	)
 	set "_sn=%_buildpepath%\mount\windows\system32\startnet.cmd"
 	>>"%_sn%" echo @cd \
 	>>"%_sn%" echo @cls

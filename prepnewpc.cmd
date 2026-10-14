@@ -250,6 +250,19 @@
 		echo ERROR: Failed to apply boot.wim. Can't continue.
 		goto :badend
 	)
+	rem
+	rem Give the on-disk WinPE its own background so it is obvious which
+	rem WinPE is running. robocopy /B (backup mode) gets past the
+	rem TrustedInstaller ACL on winpe.jpg.
+	rem
+	if exist %_actdrive%\srs\background\winpe.jpg (
+		robocopy %_actdrive%\srs\background %_srsdrive%\Windows\System32 winpe.jpg /B /IS /IT /R:1 /W:1 >nul
+		if errorlevel 8 (
+			echo Note: could not set the on-disk WinPE background ^(cosmetic only^).
+		) else (
+			echo On-disk WinPE background set.
+		)
+	)
 
 :copyvhd
 	echo.

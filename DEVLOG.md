@@ -89,3 +89,12 @@ Added a static checker (run locally in the session, not committed): every goto/c
 **Fix:** SrS_Tools is now 3072MB (3GB). Banner and README updated.
 **Live workaround:** edit `size=1024` to `size=3072` in X:\prepnewpc.cmd and re-run it. It re-partitions the disk, which is fine because nothing has been deployed to it yet.
 **To check:** `dism /Get-ImageInfo /ImageFile:<usb>:\sources\boot.wim /Index:1`. The "Size" field is the expanded size and must be under 3GB.
+
+## 2026-10-14 - WinPE desktop backgrounds
+
+**Request (Sam):** set the WinPE desktop background on the stick and in the on-disk WinPE, using the supplied "Image-O-Tron 11,000 - Powered by SteadierState" logo for both.
+- New `background\usb.jpg` and `background\disk.jpg`, both made from Sam's logo (1024x572). Each has a small caption at the bottom saying which WinPE is running (USB vs on-disk "Roll Back Windows"). The original project's winpe.bmp/winpe1.bmp did the same; the Win10 buildpe never installed them.
+- buildpe.cmd (new `:background` step): takes ownership of `Windows\System32\winpe.jpg` in the mounted boot.wim (takeown /a, then icacls grant to Administrators by SID) and copies usb.jpg over it. It copies disk.jpg to `\srs\background\winpe.jpg` inside the image. Log: `04bbackground.txt`.
+- prepnewpc.cmd: after applying boot.wim to SrS_Tools, it uses `robocopy /B` (backup mode, which gets past the TrustedInstaller ACL from WinPE) to put disk.jpg in place as the on-disk WinPE's winpe.jpg. If this fails it just notes it (cosmetic) and carries on.
+- If a JPG is missing, WinPE keeps its default background.
+- Not tested on hardware yet. If WinPE ignores it, check the takeown/icacls output in `04bbackground.txt`.
