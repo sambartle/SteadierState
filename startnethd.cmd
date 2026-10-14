@@ -22,7 +22,7 @@ wpeinit
 		echo from a Steadier State USB stick/DVD.
 		goto :notwinpe
 	)
-	set path=%path%X:\srs;
+	set "path=%path%;X:\srs"
 	echo Booted from local install of Windows PE.
 	ver
 
@@ -269,8 +269,9 @@ wpeinit
 	rem if something goes wrong and the user needs to see it, there's
 	rem a "99" exit code; otherwise "exit" to cause an auto reboot
 	rem
-	call rollback.cmd
-	if %_rollbackrc%==0 exit
+	set _rollbackrc=99
+	call X:\srs\rollback.cmd
+	if "%_rollbackrc%"=="0" exit
 	goto :badend
 
 :noimage
@@ -305,8 +306,9 @@ wpeinit
 	rem
 	echo.
 	echo Creating initial snapshot file
-	call rollback.cmd
-	if %_rollbackrc%==0 goto :goodend
+	set _rollbackrc=99
+	call X:\srs\rollback.cmd
+	if "%_rollbackrc%"=="0" goto :goodend
 	goto :badend
 
 :automerge
@@ -317,8 +319,9 @@ wpeinit
 	echo Automatically merging snapshot.vhd and image.vhd
 	echo System will reboot automatically when done.
 	del %_amfile% 2>nul
-	call merge.cmd
-	if %_mergerc%==0 exit
+	set _mergerc=99
+	call X:\srs\merge.cmd
+	if "%_mergerc%"=="0" exit
 	goto :badend
 
 :showshell
@@ -364,8 +367,9 @@ wpeinit
 	if not '%_confirm%'=='y' goto :end
 	echo.
 	echo Okay, then let's continue.
-	call rollback.cmd
-	if %_rollbackrc%==0 goto :goodend
+	set _rollbackrc=99
+	call X:\srs\rollback.cmd
+	if "%_rollbackrc%"=="0" goto :goodend
 	goto :badend
 
 :merge
@@ -383,8 +387,9 @@ wpeinit
 	if not '%_confirm%'=='y' goto :end
 	echo.
 	echo Okay, then let's continue.
-	call merge.cmd
-	if %_mergerc%==0 goto :goodend
+	set _mergerc=99
+	call X:\srs\merge.cmd
+	if "%_mergerc%"=="0" goto :goodend
 	goto :badend
 
 :goodend

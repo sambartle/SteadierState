@@ -107,3 +107,13 @@ New `setbackground.cmd`. Run it in normal Windows, elevated. It only uses built-
 2. **USB stick:** finds a drive with `\sources\boot.wim` + `\EFI\Boot\bootx64.efi` and confirms it, or asks for the letter. Then it runs `dism /Mount-Image` on index 1, takes ownership of winpe.jpg, copies in usb.jpg (and disk.jpg to `\srs\background`) and runs `/Unmount-Image /Commit`. On failure it discards the changes.
 3. **Both.**
 Logs go to `%TEMP%\srs-setbackground\`. Statically checked (labels, brackets). Not run on hardware yet.
+
+## 2026-10-14 - Fix: "rollback.cmd is not recognized" / "goto was unexpected" on first WinPE boot
+
+**Reported by Sam:** after running firstrun and rebooting, the on-disk WinPE printed "Creating initial snapshot file", then "'rollback.cmd' is not recognized..." and then "goto was unexpected at this time".
+**Cause:** an inherited bug in startnethd.cmd. `set path=%path%X:\srs;` adds X:\srs to the PATH without a `;` before it, so it gets glued onto the last PATH entry and rollback.cmd/merge.cmd can't be found. Because the call failed, `_rollbackrc` was never set, so `if %_rollbackrc%==0 goto ...` expanded to `if ==0 goto ...`, which is a syntax error.
+**Fix (startnethd.cmd):**
+- `set "path=%path%;X:\srs"`
+- All calls use full paths: `call X:\srs\rollback.cmd` and `call X:\srs\merge.cmd`.
+- `_rollbackrc` and `_mergerc` are set to 99 before each call and compared in quotes, so a failed call can never crash the script or be taken as success.
+**Live fix on a deployed PC:** the on-disk WinPE's startnet.cmd is X:\Windows\System32\startnet.cmd on the SrS_Tools partition, so edits made there in Notepad persist across reboots.
