@@ -98,3 +98,12 @@ Added a static checker (run locally in the session, not committed): every goto/c
 - prepnewpc.cmd: after applying boot.wim to SrS_Tools, it uses `robocopy /B` (backup mode, which gets past the TrustedInstaller ACL from WinPE) to put disk.jpg in place as the on-disk WinPE's winpe.jpg. If this fails it just notes it (cosmetic) and carries on.
 - If a JPG is missing, WinPE keeps its default background.
 - Not tested on hardware yet. If WinPE ignores it, check the takeown/icacls output in `04bbackground.txt`.
+
+## 2026-10-14 - setbackground.cmd (apply backgrounds without rebuilding)
+
+**Request (Sam):** apply the new backgrounds to an existing stick and an already-deployed PC.
+New `setbackground.cmd`. Run it in normal Windows, elevated. It only uses built-in tools, so no ADK is needed. Menu:
+1. **On-disk WinPE:** finds the volume labelled SrS_Tools, gives it a temporary letter with diskpart if it has none, copies disk.jpg into `Windows\System32\winpe.jpg` with `robocopy /B` (backup mode gets past the TrustedInstaller ACL) and into `\srs\background\`, then removes the letter again. SrS_Tools is a physical partition, not part of snapshot.vhd, so a rollback doesn't undo this.
+2. **USB stick:** finds a drive with `\sources\boot.wim` + `\EFI\Boot\bootx64.efi` and confirms it, or asks for the letter. Then it runs `dism /Mount-Image` on index 1, takes ownership of winpe.jpg, copies in usb.jpg (and disk.jpg to `\srs\background`) and runs `/Unmount-Image /Commit`. On failure it discards the changes.
+3. **Both.**
+Logs go to `%TEMP%\srs-setbackground\`. Statically checked (labels, brackets). Not run on hardware yet.

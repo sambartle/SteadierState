@@ -124,7 +124,7 @@ To provide an understanding of how these **Directives** can be used please exami
   7. Reboot the PC and the next boot should be to WindowsPE with the "*automerge*" directive.
 
 ### WinPE backgrounds
-`background\usb.jpg` is the desktop of the USB stick / ISO WinPE, and `background\disk.jpg` is the desktop of the on-disk "Roll Back Windows" WinPE. To change them, replace either JPG and re-run `buildpe.cmd`.
+`background\usb.jpg` is the desktop of the USB stick / ISO WinPE, and `background\disk.jpg` is the desktop of the on-disk "Roll Back Windows" WinPE. To change them, replace either JPG and re-run `buildpe.cmd`. To update things that already exist without rebuilding, run `setbackground.cmd` elevated in Windows: it updates this PC's hidden SrS_Tools WinPE (`disk.jpg`) and/or patches `sources\boot.wim` on an existing USB stick (`usb.jpg`).
 
 ### Disk layout created by prepnewpc (GPT)
 
