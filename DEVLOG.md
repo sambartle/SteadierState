@@ -144,3 +144,12 @@ Logs go to `%TEMP%\srs-setbackground\`. Statically checked (labels, brackets). N
 Both are wired into buildpe.cmd (copy lists and startnet banner) and prepnewpc.cmd (debugmode is copied into the VHD's \srs). The README is updated. Statically checked (labels, brackets, no findstr). Not run on hardware yet.
 
 **Note for Sam's current PC:** it was deployed before these existed. Copy debugmode.cmd into C:\srs by hand. If the PC is rolling back, it also needs to go into image.vhd (via `debugmode keep` or a merge), or it'll vanish on the next rollback.
+
+## 2026-10-14 - Removed unused background images
+
+**Request (Sam):** remove the watercolor and orange moon backgrounds if they're unused.
+Checked with grep: nothing in any .cmd, .md, .txt or .xml file refers to them. Removed:
+- `watercolor/` (3 BMPs) and `orange moon winpe background/` (3 BMPs)
+- root `winpe.bmp` and `winpe1.bmp` (byte-for-byte the same as watercolor/winpe*.bmp; the build now uses `background\usb.jpg` and `disk.jpg`)
+This saves about 17MB. They're still in git history (commit bf13229) if they're ever wanted.
+Kept: `Rebuilding Steady State.pptx` (the original project's presentation; documentation, not referenced by any script).
