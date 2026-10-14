@@ -153,3 +153,9 @@ Checked with grep: nothing in any .cmd, .md, .txt or .xml file refers to them. R
 - root `winpe.bmp` and `winpe1.bmp` (byte-for-byte the same as watercolor/winpe*.bmp; the build now uses `background\usb.jpg` and `disk.jpg`)
 This saves about 17MB. They're still in git history (commit bf13229) if they're ever wanted.
 Kept: `Rebuilding Steady State.pptx` (the original project's presentation; documentation, not referenced by any script).
+
+## 2026-10-14 - Red background for the on-disk WinPE
+
+**Request (Sam):** replace disk.jpg with the red version of the Image-O-Tron logo.
+`background\disk.jpg` is now the red logo (1024x572) with the same "Booted from on-disk WinPE - Roll Back Windows" caption. usb.jpg stays blue, so the two WinPEs are easy to tell apart by colour. background\README.txt updated.
+To apply it to an already-deployed PC without redeploying, run `setbackground.cmd`, option 1.
