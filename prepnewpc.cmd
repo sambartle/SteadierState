@@ -111,7 +111,7 @@
 	echo.
 	>%_actdrive%\listdisk.txt  echo list disk
 	>>%_actdrive%\listdisk.txt echo exit
-	diskpart /s %_actdrive%\listdisk.txt | findstr /r /c:"Disk [0-9]" /c:"Disk ###"
+	diskpart /s %_actdrive%\listdisk.txt | find "Disk "
 	echo.
 	set _disknum=
 	set /p _disknum=Enter the disk NUMBER (or 'end' to quit):
@@ -126,12 +126,16 @@
 	>>%_actdrive%\detaildisk.txt echo detail disk
 	>>%_actdrive%\detaildisk.txt echo exit
 	diskpart /s %_actdrive%\detaildisk.txt >%_actdrive%\detaildisk.out
-	findstr /i /c:"There is no disk selected" /c:"The disk you specified is not valid" %_actdrive%\detaildisk.out >nul
-	if %errorlevel%==0 (
+	set _baddisk=false
+	find /i "no disk selected" %_actdrive%\detaildisk.out >nul
+	if %errorlevel%==0 set _baddisk=true
+	find /i "is not valid" %_actdrive%\detaildisk.out >nul
+	if %errorlevel%==0 set _baddisk=true
+	if %_baddisk%==true (
 		echo Disk %_disknum% doesn't exist. Let's try again.
 		goto :diskquestion
 	)
-	findstr /i /c:" WINPE " %_actdrive%\detaildisk.out >nul
+	find /i " WINPE " %_actdrive%\detaildisk.out >nul
 	if %errorlevel%==0 (
 		echo.
 		echo -------- REFUSED -----------
@@ -147,7 +151,7 @@
 		)
 	)
 	echo.
-	type %_actdrive%\detaildisk.out | findstr /v /c:"Microsoft DiskPart" /c:"Copyright" /c:"On computer"
+	type %_actdrive%\detaildisk.out | find /v /i "DiskPart" | find /v "Copyright" | find /v "On computer"
 
 :warnings
 	echo.

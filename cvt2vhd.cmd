@@ -60,22 +60,22 @@
 	rem PCs. A BitLocker-protected volume can't be captured usefully, and
 	rem native VHD boot does not support BitLocker on the host or VHD.
 	rem
-	where manage-bde.exe >nul 2>&1
-	if not %errorlevel%==0 (
+	if not exist %windir%\System32\manage-bde.exe (
 		echo.
 		echo Note: manage-bde is not in this WinPE, so I can't check
 		echo BitLocker status. Make sure BitLocker is fully OFF.
 		goto :windowscheck
 	)
 	manage-bde -status %_imgdrive% >%_actdrive%\bde.txt 2>&1
-	findstr /i /c:"Fully Decrypted" /c:"Fully decrypted" %_actdrive%\bde.txt >nul
+	find /i "Fully Decrypted" %_actdrive%\bde.txt >nul
 	if %errorlevel%==0 goto :windowscheck
-	findstr /i /c:"BitLocker Drive Encryption is not" %_actdrive%\bde.txt >nul
+	find /i "BitLocker Drive Encryption is not" %_actdrive%\bde.txt >nul
 	if %errorlevel%==0 goto :windowscheck
 	echo.
 	echo -------- STOP -----------
 	echo %_imgdrive% is (or may be) BitLocker encrypted:
-	type %_actdrive%\bde.txt | findstr /i /c:"Conversion Status" /c:"Lock Status" /c:"Percentage" /c:"Protection Status"
+	type %_actdrive%\bde.txt | find /i "Status"
+	type %_actdrive%\bde.txt | find /i "Percentage"
 	echo.
 	echo Boot back into Windows, run prepref.cmd (or "manage-bde -off C:")
 	echo and wait until it reports Fully Decrypted, then try again.

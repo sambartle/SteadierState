@@ -70,3 +70,14 @@ Fixed:
 - Removed `!` from echo text in the scripts that use delayed expansion (it was being swallowed).
 
 Added a static checker (run locally in the session, not committed): every goto/call target exists, brackets balance, and no echo inside a block has an unescaped `)`.
+
+## 2026-10-14 - Fix: "findstr is not recognized" in WinPE
+
+**Reported by Sam:** prepnewpc stopped with `'findstr' is not recognized as an internal or external command`.
+**Cause:** WinPE ships `find.exe` but not `findstr.exe`. The Windows 11 port used findstr in the two scripts that run in WinPE (prepnewpc.cmd, cvt2vhd.cmd).
+**Fix:**
+- prepnewpc.cmd: disk list, the invalid-disk check (now two `find` calls feeding a flag), the WINPE-volume refusal and the detail-disk display all use `find`.
+- cvt2vhd.cmd: the BitLocker status checks use `find`. `where manage-bde.exe` (where.exe isn't guaranteed in WinPE either) is replaced with `if exist %windir%\System32\manage-bde.exe`.
+- Checked every command the WinPE-side scripts call (prepnewpc, cvt2vhd, startnethd, rollback, merge). All are in WinPE: bcdboot, bcdedit, diskpart, find, reg, robocopy, wpeutil, and manage-bde (only with the WinPE-SecureStartup component, and the script checks for it first).
+- buildpe.cmd, prepref.cmd and the hooks run in full Windows, so findstr is fine there.
+**Action needed:** the scripts live inside boot.wim on the USB stick, so re-run buildpe.cmd to rebuild the stick.
