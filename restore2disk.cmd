@@ -40,6 +40,13 @@
 		goto :badend
 	)
 	set _vhdattached=false
+	rem the boot media (WINPE label, or any volume with \sources\boot.wim +
+	rem \EFI\Boot\bootx64.efi): its disk must never be offered for wiping
+	set _media=
+	for /f "tokens=3,4" %%a in ('diskpart /s %_actdrive%\srs\listvolume.txt') do (if /i "%%b"=="WINPE" set _media=%%a)
+	for %%a in (C D E F G H I J K L M N O P Q R S T U V W Y Z) do (
+		if not defined _media if exist %%a:\sources\boot.wim if exist %%a:\EFI\Boot\bootx64.efi set _media=%%a
+	)
 
 :sourcequestion
 	echo.
@@ -106,6 +113,10 @@
 	for /f "tokens=2,3" %%a in (%_actdrive%\detaildisk.out) do (
 		if /i "%%b"=="%_srcdrv:~0,1%" (
 			echo -------- REFUSED: disk %_disknum% holds %_srcdrv%, where the source image is.
+			goto :diskquestion
+		)
+		if defined _media if /i "%%b"=="%_media%" (
+			echo -------- REFUSED: disk %_disknum% holds %_media%:, the boot media.
 			goto :diskquestion
 		)
 	)

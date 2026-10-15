@@ -14,8 +14,8 @@
 	rem the snapshot entry. We now match the entry whose device is
 	rem image.vhd instead.
 	rem
-	rem Do NOT combine this with 1101-nightlyrestartmaster or
-	rem 9902-bcddefaultmaster, which need the master entry.
+	rem Do NOT combine this with
+	rem the 1101-nightlyrestartmaster sample, which needs the master entry.
 	rem
 	echo Dropping the image.vhd (master image) boot entry.
 	echo.

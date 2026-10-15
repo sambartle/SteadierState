@@ -13,6 +13,7 @@ Steadier State boots Windows from a differencing VHD (`snapshot.vhd`) whose pare
 | Hibernation / Fast Startup off | Not supported when booting from a VHD. |
 | Windows ADK for Windows 11 **plus** the separate WinPE add-on | Needed by `buildpe.cmd`. 64-bit only (the current ADK has no x86 WinPE). |
 | Target disk free space of about 2.5x the VHD maximum size | Native-boot VHDs expand to their full size at boot. |
+| English display language (only for PCs deployed **before** the Image-O-Tron fixed boot-entry IDs, and for the 1101 sample hook) | Those find boot entries by reading `bcdedit`'s English output. Everything else uses fixed IDs or language-independent checks. |
 
 **Known limitation: feature updates.** Windows 11 feature updates (for example 24H2 to 25H2) won't install on a native-boot VHD. Monthly cumulative updates work. To move to a new release, update the reference PC and rebuild `image.vhd`. The sample hook `hooks-samples/1200-pinfeatureupdate.cmd` pins the release so Windows Update stops retrying the upgrade.
 
@@ -25,7 +26,7 @@ There are five phases (phase 0 is new for Windows 11):
   1. Set up the reference PC with Windows 11 Pro/Enterprise/Education, apps and settings the way you want them.
   2. Copy this repository to it, open a Command Prompt **as an Administrator** and run `prepref.cmd`.
   3. `prepref.cmd` checks for UEFI and a supported edition, turns BitLocker/Device Encryption off (and stops it coming back), turns off hibernation and Fast Startup, and then offers to run Sysprep with `Sysprep\unattend-win11.xml`. Sysprep is only needed if you will deploy to *other* PCs.
-  4. After Sysprep shuts the PC down, **don't** let it boot Windows again. Go to Phase 2 and boot the USB stick.
+  4. After Sysprep shuts the PC down, **don't** let it boot Windows again. Build the USB stick (Phase 1) if you haven't already, then go to Phase 2 and boot the stick.
 
 ### Phase 1 -- Install and build the SteadierState live media toolchain.
   Note: This phase requires a usb flashdrive. **Warning: All data on the usb flashdrive used with this phase will be lost!**
@@ -112,10 +113,20 @@ C:\srs\srsmgr.exe /schedule <rollback|merge|rollback_inter|rollback_base|merge_i
 C:\srs\srsmgr.exe /cancel
 C:\srs\srsmgr.exe /set mode <gui|autorollback|direct|automerge>
 C:\srs\srsmgr.exe /set autotarget <intermediate|base>
-C:\srs\srsmgr.exe /set countdown <seconds>
+C:\srs\srsmgr.exe /set countdown <seconds 0-600, 0 = wait forever>
+C:\srs\srsmgr.exe /install | /uninstall      (elevated)
 ```
 
-`rollback` and `merge` go to the intermediate if there is one (and autotarget isn't `base`), otherwise to the base. `/now` restarts straight away.
+`rollback` and `merge` go to the intermediate if there is one (and autotarget isn't `base`), otherwise to the base. `/now` restarts straight away (other users get 15 seconds and the chance to save).
+
+`srsmgr.exe` is a Windows (GUI) program, so at an **interactive** command prompt use `start /wait C:\srs\srsmgr.exe /status` to see its output and exit code. In batch files and scheduled tasks it works directly.
+
+### Security
+
+* The SrsMgr service only accepts **local** connections from interactively signed-in users (console or RDP); network connections are refused. The app checks it's talking to the real service process.
+* `firstrun` makes `C:\srs` and the Physical Drive root writable by SYSTEM and Administrators only (Users can read and run), *before* installing the service, so nobody can swap the exe the service runs. Permissions use SIDs, so they work on any display language.
+* The service only uses the volume that hosts the running VHD (or, failing that, a fixed disk) labelled `Physical_Drive`, and refuses a `\srsdirectives` that is a link.
+* `diskpart`, `bcdedit`, `cmd` and `notepad` are always started from `System32`.
 
 ### How the boot entries are used
 
@@ -158,6 +169,6 @@ SteadierState now has a new feature called first run hooks. First run hooks prov
 |---|---|
 | `1050-win11-vhdboot.cmd` | **New.** Sets `PreventDeviceEncryption`, turns off hibernation and Fast Startup. |
 | `1100-registrynodrives.cmd` | Hides the Physical Drive in Explorer. **Fixed:** it used to write the wrong bitmask for E: onwards. |
-| `1110-security.cmd` | Locks down `C:\srs` and `\srsdirectives`. |
+| `1110-security.cmd` | Locks `\srsdirectives` to SYSTEM + Administrators and re-applies the `C:\srs` permissions (Users keep read/execute so the app runs). Uses SIDs. |
 
-`hooks-samples/1100-removewindows10bootentry.cmd` has been replaced by `1100-removemasterbootentry.cmd`, which matches the `image.vhd` entry rather than the text "Windows 10". `1200-pinfeatureupdate.cmd` is new (see the feature update limitation above). `9900-nightlyreset` and `9901-nightlymerge` now use `srsmgr /schedule rollback|merge /now`. The old `1000-rollback.cmd` hook (the `bcddefault` scheduled task) is gone; the SrsMgr service does that job and the boot mode replaces Roll Back/Delta Mode. `1101-nightlyrestartmaster` and `9902-bcddefaultmaster` boot the master image directly; at the next Windows start the service puts the boot entries back to match the mode.
+`hooks-samples/1100-removewindows10bootentry.cmd` has been replaced by `1100-removemasterbootentry.cmd`, which matches the `image.vhd` entry rather than the text "Windows 10". `1200-pinfeatureupdate.cmd` is new (see the feature update limitation above). `9900-nightlyreset` and `9901-nightlymerge` now use `srsmgr /schedule rollback|merge /now`. The old `1000-rollback.cmd` hook (the `bcddefault` scheduled task) is gone; the SrsMgr service does that job and the boot mode replaces Roll Back/Delta Mode. `1101-nightlyrestartmaster` boots the master image nightly so it can take updates: it first schedules `rollback_base`, because booting `image.vhd` invalidates the snapshot and any intermediate, so they must be rebuilt (any intermediate is discarded every night). The old `9902-bcddefaultmaster` sample was removed: making the master the permanent default could corrupt the chain.

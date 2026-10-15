@@ -146,6 +146,8 @@ rem ====================================================================
 	dism /Cleanup-Mountpoints >nul 2>&1
 	if exist "%_mnt%" rd /s /q "%_mnt%" 2>nul
 	md "%_mnt%"
+	rem files copied from an ISO are read-only; DISM can't mount those for writing
+	attrib -r %_usb%:\sources\boot.wim
 	echo Mounting %_usb%:\sources\boot.wim (takes a minute)...
 	dism /Mount-Image /ImageFile:%_usb%:\sources\boot.wim /Index:1 /MountDir:"%_mnt%" >"%_logdir%\mount.txt"
 	if not %errorlevel%==0 (

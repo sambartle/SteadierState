@@ -54,7 +54,7 @@
 3. On a Win11 admin PC run `buildpe.cmd` and build the ISO. Boot the VM from it and run `cvt2vhd` to the second disk.
 4. Boot again and run `prepnewpc`, picking disk 0 (the first VHDX). Check it refuses disk 1 (holds image.vhd).
 5. Boot the master, finish OOBE, run `C:\srs\firstrun.cmd` and reboot. Check snapshot.vhd is created and Windows boots from it.
-6. Make a change, reboot, and confirm it is rolled back. Test the `noauto` and `automerge` directives. Test that a forced merge failure keeps snapshot.vhd.
+6. Make a change, reboot, and confirm it is rolled back. *(Updated: test the Image-O-Tron modes, actions and scheduling instead of the removed noauto/automerge directives; see the Image-O-Tron entries below.)* Test that a forced merge failure keeps snapshot.vhd.
 7. Repeat on one physical NVMe PC with USB boot.
 
 ## 2026-10-09 - Review pass (independent static review of the batch files)
@@ -218,3 +218,45 @@ Note: the whole USB disk is wiped (all partitions), not just the selected volume
 **Reported (screenshot from Sam's PC):** button labels clipped ("Merge snapshot into intermediat"), the third disk-chain row cut off with a scrollbar, and the status message truncated with "...". Real Segoe UI is wider, and real ListView rows are taller, than in the Wine test.
 **Fix (srsmgr.c):** button font 15 -> 13 px semibold; disk-chain list 86 -> 104 px (group 118 -> 136); status text wraps over two lines instead of being ellipsised; windows 20 px taller (PE 592, desktop 620).
 The "(none)" chain and the "service isn't running and this program isn't elevated" message are expected on a PC without Steadier State deployed.
+
+## 2026-10-15 - Whole-project review: fixes
+
+**Request (Sam):** scan the whole project for issues, then fix them all. Three independent reviewers covered srsmgr.c, the WinPE/deploy scripts, and the Windows-side scripts/hooks/docs; the main claims were checked against the code before fixing.
+
+### srsmgr.c
+| Issue | Fix |
+|---|---|
+| Pipe reachable from the network (any domain user could force a rollback + restart) | `PIPE_REJECT_REMOTE_CLIENTS`; SDDL now denies Network (NU) and allows Interactive users (IU) instead of Authenticated Users; restart no longer force-closes apps (15 s, `bForceAppsClosed=FALSE`) |
+| diskpart/bcdedit started without a path from a SYSTEM service (exe-folder hijack) | Always `GetSystemDirectory()\tool.exe` (also cmd, notepad) |
+| One silent client could block the service; pipe name could be squatted | Pipe created first at service start with `FILE_FLAG_FIRST_PIPE_INSTANCE`, kept open and reused; overlapped I/O with a 5 s read timeout; stop event. Client checks `GetNamedPipeServerProcessId` == the SrsMgr service PID (SQOS identification) |
+| Boot entries found by parsing English bcdedit output | Fixed GUIDs: Roll Back Windows `{5d0c6a10-1e5b-4c7e-9a7d-511f0a11b001}` (prepnewpc), snapshot `{...b002}` (srsmgr). Found with `bcdedit /enum {guid}` exit code. Parsing kept only as a fallback for older deployments |
+| Physical Drive chosen by label only (a USB stick labelled Physical_Drive would be used) | Prefer the volume hosting the running VHD (`GetStorageDependencyInformation`, loaded dynamically from virtdisk.dll); else the first FIXED volume with the label. Refuse `\srsdirectives` if it's a reparse point |
+| srs.ini deleted then rewritten on every boot (power cut = lost settings) | Temp file + `MoveFileEx(REPLACE_EXISTING, WRITE_THROUGH)`; WinPE only rewrites when a pending action has to be cleared |
+| merge_base in two steps could leave the intermediate half-changed | Single `merge vdisk depth=2` (depth=1 without an intermediate) |
+| "No files have been deleted" shown even after a snapshot was deleted | Tracks deletions; tells the user to roll back to rebuild the snapshot |
+| Snapshot boot entry set-up errors ignored (half-built entry as default, no menu) | Every `/set` checked; entry deleted on failure; `bcd_apply` returns success; WinPE won't restart if the boot entries couldn't be set; Straight to Windows uses a 2 s boot menu |
+| Strings could be left unterminated | All formatting via `sfmt()` / `scpy()` (always NUL-terminated); config zeroed |
+| Non-numeric countdown silently meant "wait forever" | Validated (digits, 0-600) in the service, the PE settings and srs.ini |
+| Hand-edited `pending=initial`/`continue` accepted | `is_schedulable()` everywhere; unknown mode/autotarget/after values fall back to defaults |
+| Window taller than small/scaled screens | Layout scales down to the work area |
+| `/install` returned success when the service didn't start, the drive wasn't found or the boot entries weren't set | Returns 1 in all those cases, so firstrun stops |
+
+### Scripts
+- **buildpe:** removed the leftover duplicate `:errorcheck` block (it ran a second, failing ISO build every time); renamed the duplicate `:background` label; log folder falls back to %TEMP% (it used to "continue anyway" and then fail); ISO folder created if OneDrive moved Documents; files check now includes restore2disk.cmd and the background JPGs.
+- **prepnewpc:** refuses the disk holding the boot media by drive letter (it used to check only the WINPE label); asks for confirmation when the media was found without a WINPE label; handles a VHD volume WinPE already gave a letter; creates Roll Back Windows with the fixed GUID; sets the master entry via `{default}` instead of parsing.
+- **restore2disk:** detects the boot media and refuses its disk.
+- **cvt2vhd:** empty VHD-size answer no longer crashes; offers to delete a leftover image.wim; detaches a half-made image.vhd on failure.
+- **firstrun:** locks `C:\srs` (SYSTEM + Administrators full, Users read/execute, by SID) **before** `srsmgr /install`, and locks the Physical Drive root (removes Authenticated Users/Everyone).
+- **hooks/1110-security:** SIDs instead of English names; keeps Users read/execute on C:\srs; srsdirectives SYSTEM + Administrators only; rewritten without icacls inside ( ) blocks.
+- **hooks-samples/1101-nightlyrestartmaster:** rewritten to schedule `rollback_base` before booting the master (booting image.vhd invalidates the children). **9902-bcddefaultmaster removed** (it could corrupt the chain). 1100's comment updated.
+- **setbackground:** `attrib -r` on boot.wim before mounting (copied from the ISO as read-only).
+- **prepref:** empty build guard; `/i` for y/n answers; BitLocker state via `Get-BitLockerVolume` (language-independent).
+- **README:** Phase 0 wording, English-language note (only older deployments and the 1101 sample), CLI `start /wait` note, `/install`/`/uninstall`, new Security section, hooks text. background\README mentions setbackground.cmd. DEVLOG test plan updated.
+
+### Tested here (Wine + stand-in diskpart/bcdedit)
+- Regression suite passes: initial (old random GUIDs, and a new fixed-GUID entry with every `/set` checked), promote, merge_base with intermediate via depth=2 + shutdown, autorollback to intermediate and to base, automerge, direct (timeout 2), merge_inter. Hand-edited `pending=initial` is ignored; bad mode/countdown values fall back to defaults; a boot-entry failure after an action keeps the PC on screen instead of restarting.
+- Service: install/status/schedule/set/cancel through the hardened pipe; server-PID check passes; bad countdown and `initial` rejected; atomic settings save; a silent client only delays others by the 5 s timeout.
+- Window scales to fit a 1024x600 screen.
+- All scripts: no missing/duplicate labels, balanced brackets, no unescaped `)` in block echoes, no `(OI)(CI)` inside blocks, CRLF.
+
+**Still only testable on real hardware:** real diskpart/bcdedit/native VHD boot, `GetStorageDependencyInformation` on a VHD-booted system, the pipe ACL with real interactive/RDP logons, icacls on a real Physical Drive.

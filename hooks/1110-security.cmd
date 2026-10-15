@@ -17,37 +17,29 @@
 	set _phydrivepassed=%~1
 	if "%_phydrivepassed%"=="" set _phydrivepassed=%_phydrive%
 	echo.
-	echo Attempting to set some security on \srs and %_phydrivepassed%:\srsdirectives folders and files.
-	rem We can assume that the srs folder is on same drive as we are running from
-	echo Dropping inheritance on \srs folder...
-	icacls %systemdrive%\srs /inheritance:d
-	echo Dropping access for Authenticated Users group on \srs folder...
-	icacls %systemdrive%\srs /remove "Authenticated Users"
-	echo Dropping access for Users on \srs folder...
-	icacls %systemdrive%\srs /remove "Users"
+	echo Attempting to set some security on %systemdrive%\srs and %_phydrivepassed%:\srsdirectives.
+	rem SIDs, not names, so this works on any display language:
+	rem   S-1-5-18 SYSTEM, S-1-5-32-544 Administrators, S-1-5-32-545 Users
+	rem C:\srs: Users keep read/execute so anyone can run the Image-O-Tron app
+	rem (firstrun already set this before installing the service; re-applied
+	rem here in case the hook is run on its own).
+	icacls %systemdrive%\srs /inheritance:r /grant:r *S-1-5-18:(OI)(CI)F *S-1-5-32-544:(OI)(CI)F *S-1-5-32-545:(OI)(CI)RX /T /C /Q
 	echo.
-	if "%_phydrivepassed%"=="" (
-		echo No Physical Drive letter available; skipping srsdirectives.
-		goto :goodend
-	)
-	if exist %_phydrivepassed%:\srsdirectives (
-		echo %_phydrivepassed%:\srsdirectives already exists.
-	) else (
-		echo Attempting to make the %_phydrivepassed%:\srsdirectives directory.
-		md %_phydrivepassed%:\srsdirectives
-	)
-	echo.
-	if exist %_phydrivepassed%:\srsdirectives (
-		echo Dropping inheritance on %_phydrivepassed%:\srsdirectives folder...
-		icacls %_phydrivepassed%:\srsdirectives /inheritance:d
-		echo Dropping access for Authenticated Users group on %_phydrivepassed%:\srsdirectives folder...
-		icacls %_phydrivepassed%:\srsdirectives /remove "Authenticated Users"
-		echo Dropping access for Users on %_phydrivepassed%:\srsdirectives folder...
-		icacls %_phydrivepassed%:\srsdirectives /remove "Users"
-	) else (
-		echo The %_phydrivepassed%:\srsdirectives folder does not exist to assign permission.
-		goto :badend
-	)
+	if "%_phydrivepassed%"=="" goto :nophy
+	if not exist %_phydrivepassed%:\srsdirectives md %_phydrivepassed%:\srsdirectives
+	if not exist %_phydrivepassed%:\srsdirectives goto :nodir
+	rem srsdirectives (settings, logs): SYSTEM + Administrators only. The
+	rem SrsMgr service (SYSTEM) does the work for ordinary users.
+	icacls %_phydrivepassed%:\srsdirectives /inheritance:r /grant:r *S-1-5-18:(OI)(CI)F *S-1-5-32-544:(OI)(CI)F /T /C /Q
+	goto :goodend
+
+:nophy
+	echo No Physical Drive letter available; skipping srsdirectives.
+	goto :goodend
+
+:nodir
+	echo The %_phydrivepassed%:\srsdirectives folder doesn't exist and couldn't be created.
+	goto :badend
 
 :goodend
 	rem

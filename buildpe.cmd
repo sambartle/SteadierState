@@ -65,8 +65,13 @@
 	rd "%_logdir%" /q /s 2>nul
 	md "%_logdir%" 2>nul
 	if not exist "%_logdir%" (
+		set "_logdir=%temp%\buildpelogs"
+		md "%temp%\buildpelogs" 2>nul
+	)
+	if not exist "%_logdir%" (
 		echo.
-		echo I can't create the log folder %_logdir%; continuing anyway.
+		echo I can't create a log folder ^(tried %systemroot%\logs and %temp%^).
+		goto :badend
 	)
 
 :adkcheck
@@ -151,7 +156,7 @@
 :filescheck
 	echo.
 	echo Checking for the files in folder "%_srspath%"...
-	for %%f in (cvt2vhd.cmd firstrun.cmd listvolume.txt prepnewpc.cmd srsmgr.exe startnethd.cmd hooks hooks-samples) do (
+	for %%f in (cvt2vhd.cmd firstrun.cmd listvolume.txt prepnewpc.cmd restore2disk.cmd srsmgr.exe startnethd.cmd hooks hooks-samples background\usb.jpg background\disk.jpg) do (
 		if not exist "%_srspath%\%%f" (
 			echo.
 			echo -------- ERROR -----------
@@ -210,7 +215,11 @@
 	if '%_isoresp%'=='end' goto :end
 	if not '%_isoresp%'=='y' goto :noiso
 	set _makeiso=true
-	set "_isopath=%userprofile%\Documents\SrS64Inst-Win11.iso"
+	rem Documents may not exist locally when OneDrive manages it
+	set "_isodir=%userprofile%\Documents"
+	if not exist "%_isodir%\" md "%_isodir%" 2>nul
+	if not exist "%_isodir%\" set "_isodir=%_srspath%"
+	set "_isopath=%_isodir%\SrS64Inst-Win11.iso"
 	echo Okay, I will create %_isopath%.
 	goto :isousbcheck
 
@@ -332,7 +341,7 @@
 	)
 	echo Optional components step finished (see 04aaddpkg.txt).
 
-:background
+:wpebackground
 	rem
 	rem WinPE (Windows 10/11) shows Windows\System32\winpe.jpg as its
 	rem desktop. It is owned by TrustedInstaller, so take ownership in
@@ -509,19 +518,6 @@
 	echo.
 	echo REFUSED: disk %_usbdisk% is this PC's boot/system disk. Not touching it.
 	goto :errorcheck
-
-:errorcheck
-	echo.
-	echo Creating ISO with MakeWinPEMedia...
-	call MakeWinPEMedia /iso /f %_bootex% "%_buildpepath%" "%_isopath%" >"%_logdir%\07makeiso.txt"
-	if %errorlevel%==0 (
-		echo Your ISO is in %_isopath%.
-		set _madeiso=true
-		goto :errorcheck
-	)
-	echo.
-	echo =============== ERROR: MakeWinPEMedia /iso failed ===============
-	type "%_logdir%\07makeiso.txt"
 
 :errorcheck
 	if '%_madeiso%%_madeusb%'=='falsefalse' (

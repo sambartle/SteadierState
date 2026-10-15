@@ -11,4 +11,7 @@ Replace either file with any JPG of your own, keeping the same name.
 buildpe.cmd. usb.jpg is built into the stick; disk.jpg is carried on the
 stick and installed onto the SrS_Tools partition by prepnewpc.cmd.
 
+To put new pictures onto an existing stick or an already-deployed PC
+without rebuilding, run setbackground.cmd (elevated, in Windows).
+
 If a file is missing, WinPE keeps its default background.

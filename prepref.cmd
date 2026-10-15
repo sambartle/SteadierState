@@ -54,7 +54,7 @@
 	echo       %_edition% build %_build% (%_dispver%)
 	if /i "%_edition%"=="Core" goto :home
 	if /i "%_edition%"=="CoreSingleLanguage" goto :home
-	if %_build% LSS 22000 echo       WARNING: this is not Windows 11.
+	if defined _build if %_build% LSS 22000 echo       WARNING: this is not Windows 11.
 	goto :bitlocker
 
 :home
@@ -67,7 +67,7 @@
 	echo [3/5] BitLocker / Device Encryption on %systemdrive%
 	reg add "HKLM\SYSTEM\CurrentControlSet\Control\BitLocker" /v PreventDeviceEncryption /t REG_DWORD /d 1 /f >nul
 	echo       PreventDeviceEncryption set (stops it re-enabling itself).
-	manage-bde -status %systemdrive% | find /i "Fully Decrypted" >nul
+	powershell -NoProfile -Command "if((Get-BitLockerVolume -MountPoint $env:SystemDrive).VolumeStatus -eq 'FullyDecrypted'){exit 0}else{exit 1}" >nul 2>&1
 	if %errorlevel%==0 (
 		echo       Fully Decrypted - OK
 		goto :hibernate
@@ -79,7 +79,7 @@
 	echo       saved somewhere safe first.
 	set _bderesp=
 	set /p _bderesp=      Decrypt %systemdrive% now? (y/n) 
-	if not "%_bderesp%"=="y" (
+	if /i not "%_bderesp%"=="y" (
 		set /a _problems+=1
 		goto :hibernate
 	)
@@ -101,7 +101,7 @@
 		set /a _problems+=1
 		goto :hibernate
 	)
-	manage-bde -status %systemdrive% | find /i "Fully Decrypted" >nul
+	powershell -NoProfile -Command "if((Get-BitLockerVolume -MountPoint $env:SystemDrive).VolumeStatus -eq 'FullyDecrypted'){exit 0}else{exit 1}" >nul 2>&1
 	if %errorlevel%==0 (
 		echo       Fully Decrypted - OK
 		goto :hibernate
@@ -134,7 +134,7 @@
 	echo       if you will only deploy back to this same PC.
 	set _spresp=
 	set /p _spresp=      Run Sysprep /generalize /oobe /shutdown now? (y/n) 
-	if not "%_spresp%"=="y" goto :next
+	if /i not "%_spresp%"=="y" goto :next
 	set "_unattend=%_here%Sysprep\unattend-win11.xml"
 	if exist "%_unattend%" (
 		"%windir%\System32\Sysprep\sysprep.exe" /generalize /oobe /shutdown /unattend:"%_unattend%"

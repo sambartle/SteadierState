@@ -77,8 +77,10 @@
 	rem re-apply its \sources\boot.wim to the hard disk.
 	rem
 	set _usbdrive=
+	set _usbguess=false
 	for /f "tokens=3,4" %%a in ('diskpart /s %_actdrive%\srs\listvolume.txt') do (if /i "%%b"=="WINPE" set _usbdrive=%%a:)
 	if '%_usbdrive%'=='' (
+		set _usbguess=true
 		rem ISO media may not carry the WINPE label; look for boot.wim
 		for %%a in (C D E F G H I J K L M N O P Q R S T U V W Y Z) do (
 			if not defined _usbdrive if exist %%a:\sources\boot.wim if exist %%a:\EFI\Boot\bootx64.efi set _usbdrive=%%a:
@@ -98,6 +100,15 @@
 		goto :badend
 	)
 	echo The Steadier State boot media is %_usbdrive%.
+	if not "%_usbguess%"=="true" goto :diskquestion
+	rem found without the WINPE label (e.g. a Rufus/Ventoy stick): a Windows
+	rem installer USB would match too, so make sure it's the right one
+	echo.
+	echo NOTE: %_usbdrive% has no WINPE label. Make sure it's the Steadier
+	echo State stick made by buildpe, not a Windows installer USB.
+	set _usbok=
+	set /p _usbok=Use %_usbdrive% as the boot media? (y/n) 
+	if /i not "%_usbok%"=="y" goto :end
 
 :diskquestion
 	rem
@@ -147,6 +158,12 @@
 			echo.
 			echo -------- REFUSED -----------
 			echo Disk %_disknum% holds %_extdrive%, where image.vhd lives.
+			goto :diskquestion
+		)
+		if /i "%%b"=="%_usbdrive:~0,1%" (
+			echo.
+			echo -------- REFUSED -----------
+			echo Disk %_disknum% holds %_usbdrive%, the Steadier State boot media.
 			goto :diskquestion
 		)
 	)
@@ -287,14 +304,23 @@
 		goto :badend
 	)
 	set _volnum=
+	set _vhdltr=
 	for /f "tokens=2-4" %%a in ('diskpart /s %_actdrive%\srs\listvolume.txt') do (
 		if "%%b"=="Windows_SrS" set _volnum=%%a
-		if "%%c"=="Windows_SrS" set _volnum=%%a
+		if "%%c"=="Windows_SrS" (
+			set _volnum=%%a
+			set _vhdltr=%%b
+		)
 	)
 	if '%_volnum%'=='' (
 		echo Unable to find the volume labelled "Windows_SrS" inside
 		echo image.vhd. Was it made with cvt2vhd?
 		goto :badend
+	)
+	rem WinPE may already have given the VHD volume a letter
+	if defined _vhdltr (
+		set _vhddrive=%_vhdltr%
+		goto :vhdletterok
 	)
 	>%_actdrive%\mountvhd.txt  echo select volume %_volnum%
 	>>%_actdrive%\mountvhd.txt echo assign letter=%_vhddrive%
@@ -304,6 +330,8 @@
 		echo Diskpart was unable to give image.vhd a drive letter.
 		goto :badend
 	)
+
+:vhdletterok
 	set _vhddrive=%_vhddrive%:
 	if not exist %_vhddrive%\Windows\System32\winload.efi (
 		echo %_vhddrive% doesn't look like a Windows installation.
@@ -340,10 +368,11 @@
 :bcdconfig
 	echo.
 	echo Adding the "Roll Back Windows" (on-disk WinPE) boot entry
-	set _guid=
-	for /f "tokens=2 delims={}" %%a in ('bcdedit %_bcdstore% /create /d "Roll Back Windows" /application osloader') do (set _guid={%%a})
-	if '%_guid%'=='' (
-		echo Unable to create Roll Back Windows entry with bcdedit
+	rem fixed GUID so srsmgr finds it without parsing (language-independent)
+	set _guid={5d0c6a10-1e5b-4c7e-9a7d-511f0a11b001}
+	bcdedit %_bcdstore% /create %_guid% /d "Roll Back Windows" /application osloader
+	if errorlevel 1 (
+		echo Unable to create the Roll Back Windows entry with bcdedit
 		goto :badend
 	)
 	echo on
@@ -357,27 +386,17 @@
 	bcdedit %_bcdstore% /timeout 3
 	@echo off
 	rem
-	rem Make the image.vhd entry (created by bcdboot) the default so the
-	rem first boot goes into the master image for firstrun.cmd.
+	rem bcdboot made the image.vhd (master) entry the store's {default}, so
+	rem the first boot goes into the master image for firstrun.cmd. No
+	rem parsing of (language-dependent) bcdedit output needed.
 	rem
-	for /f "delims=" %%a in ('bcdedit %_bcdstore% /enum /v') do (
-		for /f "tokens=1,2" %%b in ("%%a") do (
-			if "%%b"=="identifier" (
-				set _guid=%%c
-				bcdedit %_bcdstore% /enum !_guid! /v | find /i "image.vhd" >nul
-				if !errorlevel!==0 (
-					bcdedit %_bcdstore% /default !_guid!
-					bcdedit %_bcdstore% /set !_guid! description "Windows 11 (master image)"
-					echo Set image.vhd as the default boot entry.
-					goto :copysrs
-				)
-			)
-		)
+	bcdedit %_bcdstore% /set {default} description "Windows 11 (master image)"
+	if errorlevel 1 (
+		echo.
+		echo Unable to find the image.vhd boot entry in %_bcdstore%
+		goto :badend
 	)
-	echo.
-	echo Something went wrong and I was unable to set image.vhd as the
-	echo default entry in %_bcdstore%
-	goto :badend
+	echo The master image ^(image.vhd^) is the default boot entry.
 
 :copysrs
 	echo.

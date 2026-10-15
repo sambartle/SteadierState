@@ -165,9 +165,11 @@
 	echo 2.5x this size free, because native-boot VHDs expand to full size.
 	set _vhdsize=
 	set /p _vhdsize=Please enter just the number.
-	if '%_vhdsize%'=='end' goto :end
+	if /i "%_vhdsize%"=="end" goto :end
+	if "%_vhdsize%"=="" goto :vhdsizequestion
+	set _vhdtest=
 	set /a _vhdtest=%_vhdsize% 2>nul
-	if not '%_vhdtest%'=='%_vhdsize%' goto :vhdsizequestion
+	if not "%_vhdtest%"=="%_vhdsize%" goto :vhdsizequestion
 	if %_vhdsize% LSS 64 (
 		echo Windows 11 needs at least 64GB. Let's try again.
 		goto :vhdsizequestion
@@ -212,6 +214,21 @@
 	if not '%_confirm%'=='y' goto :end
 
 :capturewim
+	set _vhdattached=false
+	if not exist "%_extdrive%\image.wim" goto :docapture
+	echo.
+	echo %_extdrive%\image.wim already exists ^(probably from an earlier run^).
+	echo DISM can't capture over it. Delete it and capture again?
+	set _delwim=
+	set /p _delwim=Type 'y' to delete it, anything else to stop: 
+	if /i not "%_delwim%"=="y" goto :end
+	del /f "%_extdrive%\image.wim"
+	if exist "%_extdrive%\image.wim" (
+		echo Couldn't delete image.wim.
+		goto :badend
+	)
+
+:docapture
 	echo.
 	echo Capturing %_imgdrive% to %_extdrive%\image.wim ...
 	Dism /ScratchDir:"%_extdrive%\scratch" /Capture-Image /ImageFile:"%_extdrive%\image.wim" /CaptureDir:%_imgdrive%\ /Name:"SrS Windows 11 image" /Compress:fast /Verify
@@ -232,6 +249,7 @@
 	>>%_actdrive%\makevhd.txt echo assign letter=%_vhddrive%
 	>>%_actdrive%\makevhd.txt echo exit
 	type %_actdrive%\makevhd.txt
+	set _vhdattached=true
 	diskpart /s %_actdrive%\makevhd.txt
 	if not %errorlevel%==0 (
 		echo.
@@ -262,6 +280,7 @@
 		echo =========== ERROR: Diskpart detach vhd attempt failed =========
 		goto :badend
 	)
+	set _vhdattached=false
 	echo.
 	echo You can delete %_extdrive%\image.wim and %_extdrive%\scratch once
 	echo you are happy with image.vhd.
@@ -283,6 +302,15 @@
 :badend
 	echo.
 	echo Please check the errors listed above to see what happened.
+	if not "%_vhdattached%"=="true" goto :end
+	rem leave nothing attached, so image.vhd can be deleted / re-run works
+	echo.
+	echo Detaching the half-made image.vhd...
+	>%_actdrive%\detachvhd.txt  echo select vdisk file="%_extdrive%\image.vhd"
+	>>%_actdrive%\detachvhd.txt echo detach vdisk
+	>>%_actdrive%\detachvhd.txt echo exit
+	diskpart /s %_actdrive%\detachvhd.txt >nul
+	echo Delete %_extdrive%\image.vhd before running cvt2vhd again.
 
 :end
 	endlocal
