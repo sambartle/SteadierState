@@ -130,7 +130,11 @@ C:\srs\srsmgr.exe /install | /uninstall      (elevated)
 
 ### How the boot entries are used
 
-The default boot entry is "Roll Back Windows" (WinPE) in every mode except Straight to Windows. After an action, WinPE sets a **one-time** boot (`bootsequence`) into the snapshot. So a power cut or crash always ends up back at the boot manager. In Straight to Windows mode the default is the snapshot, and scheduling an action sets a one-time boot into WinPE.
+Only the **default** boot entry is used (as in the original Steadier State). After any action, including Continue, WinPE makes the snapshot the default so the next boot starts Windows. When Windows starts, the SrsMgr service sets the default back to "Roll Back Windows", so the next restart (or a crash or power cut) goes to the boot manager. The exception is Straight to Windows mode, where the snapshot stays the default unless an action is scheduled.
+
+### Updating srsmgr.exe on a deployed PC
+
+Put the new `srsmgr.exe` next to `srs-update.cmd` and run the script elevated in Windows. It updates both copies (`C:\srs` and the WinPE copy on the hidden SrS_Tools partition) and offers to merge so the update survives rollbacks.
 
 ### Going back to a normal install (restore2disk)
 Boot the USB stick and run `restore2disk`. It wipes the disk you choose and applies `image.wim` (left by cvt2vhd) or `image.vhd` from an external drive as a normal, non-VHD Windows install.

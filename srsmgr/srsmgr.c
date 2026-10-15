@@ -573,22 +573,30 @@ static BOOL bcd_ensure_snapshot(BcdIds *ids)
     return TRUE;
 }
 
-/* Make the boot entries match the mode.
- *   non-direct: default = Roll Back Windows (WinPE every boot)
- *   direct    : default = snapshot (Windows directly)
- * oneShotSnap: (PE) boot the snapshot once next time.
- * oneShotPE  : (Windows) go to WinPE once next time (scheduled action). */
-static BOOL bcd_apply(const Config *c, BOOL oneShotSnap, BOOL oneShotPE)
+/* Make the boot entries match the mode, using the DEFAULT entry only
+ * (no one-time bootsequence - it wasn't honoured on real hardware, so
+ * every boot came back to WinPE). Same scheme as the original Steadier
+ * State (rollback.cmd + the bcddefault task):
+ *   WinPE, after any action/Continue (toSnap): default = snapshot, so the
+ *       next boot starts Windows.
+ *   Windows (service start, settings, schedule, cancel):
+ *       default = "Roll Back Windows" unless the mode is Straight to
+ *       Windows with nothing scheduled, in which case default = snapshot.
+ *   So a crash/power cut after Windows has started returns to the boot
+ *   manager, exactly like the old bcddefault task. */
+static BOOL bcd_apply(const Config *c, BOOL toSnap, BOOL wantPE)
 {
     BcdIds ids;
     WCHAR a[256];
     bcd_find(&ids);
     if (g_pe && !bcd_ensure_snapshot(&ids)) return FALSE;
     BOOL direct = !_wcsicmp(c->mode, L"direct");
-    const WCHAR *def = direct ? ids.snap : ids.rb;
+    BOOL pending = _wcsicmp(c->pending, L"none") != 0;
+    BOOL useSnap = g_pe ? toSnap : (direct && !pending && !wantPE);
+    const WCHAR *def = useSnap ? ids.snap : ids.rb;
     if (!def[0]) {
         sfmt(g_lastErr, 1024, L"Couldn't find the %ls boot entry.",
-             direct ? L"snapshot" : L"\"Roll Back Windows\"");
+             useSnap ? L"snapshot" : L"\"Roll Back Windows\"");
         detail(L"%ls", g_lastErr);
         return FALSE;
     }
@@ -599,15 +607,8 @@ static BOOL bcd_apply(const Config *c, BOOL oneShotSnap, BOOL oneShotPE)
     }
     /* Straight to Windows keeps a 2 s menu so WinPE stays reachable by hand */
     bcdedit(direct ? L"/timeout 2" : L"/timeout 0", NULL);
-    if (oneShotSnap && ids.snap[0] && !direct) {
-        sfmt(a, 256, L"/bootsequence %ls", ids.snap);
-        bcdedit(a, NULL);
-    } else if (oneShotPE && ids.rb[0]) {
-        sfmt(a, 256, L"/bootsequence %ls", ids.rb);
-        bcdedit(a, NULL);
-    } else if (!oneShotSnap && !oneShotPE && !g_pe) {
-        bcdedit(L"/deletevalue {bootmgr} bootsequence", NULL);
-    }
+    /* clear any one-time boot left by earlier versions */
+    bcdedit(L"/deletevalue {bootmgr} bootsequence", NULL);
     return TRUE;
 }
 

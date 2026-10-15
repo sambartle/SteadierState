@@ -267,3 +267,16 @@ The "(none)" chain and the "service isn't running and this program isn't elevate
 **Cause:** `icacls C:\srs /inheritance:r /grant:r <SID>:(OI)(CI)F ... /T` applies the grants to every file as well. Folder-style (OI)(CI) grants on files left them with an effectively empty, deny-everyone DACL. (Not Smart App Control, which was off; and the code-integrity log had no blocks.)
 **Fix:** set the protected ACL on the folder only (no /T), then `icacls <folder>\* /reset /T` so the contents simply inherit it. firstrun then checks it can still read srsmgr.exe and stops with repair instructions if not. Same change in hooks/1110-security.cmd for C:\srs and \srsdirectives. The Physical Drive root line was already root-only.
 **Recovery on an affected PC (elevated):** `takeown /f C:\srs /r /d y` then `icacls C:\srs /reset /t /c` (srs-fixacl.cmd does this), copy in the new firstrun.cmd and hooks\1110-security.cmd, and run firstrun again.
+
+## 2026-10-15 - Fix: boot screen on every boot, Windows never started
+
+**Reported by Sam (real PC):** in GUI mode the boot screen came back on every restart; Windows never loaded.
+**Cause:** after Continue (or any action) WinPE left "Roll Back Windows" as the default and relied on a one-time `bcdedit /bootsequence {snapshot}` to start Windows once. On Sam's hardware that one-time sequence wasn't honoured, so every boot went back to WinPE.
+**Fix (srsmgr.c `bcd_apply`):** only the default entry is used, like the original Steadier State (rollback.cmd set the default to the snapshot; the bcddefault task set it back at Windows start):
+- WinPE, after any action or Continue: default = snapshot.
+- Windows (service start, settings, schedule, cancel): default = Roll Back Windows, except in Straight to Windows mode with nothing scheduled (then default = snapshot).
+- Any leftover `bootsequence` from earlier builds is deleted.
+A crash or power cut after the service has started still lands in the boot manager.
+**Workaround on an affected PC:** on the boot screen choose Settings > Boot mode > Straight to Windows, then Continue (this sets the default rather than the one-time sequence).
+**New tool `srs-update.cmd`:** run elevated in Windows with a new srsmgr.exe next to it. It stops the service, replaces C:\srs\srsmgr.exe, starts the service, mounts SrS_Tools and replaces the WinPE copy (checked with fc /b), then offers to schedule a merge so the update survives rollbacks.
+Tested here: WinPE actions now set `/default {snapshot}`; the service sets `/default {Roll Back Windows}` in GUI mode; in direct mode, schedule switches the default to Roll Back Windows and cancel switches it back.
