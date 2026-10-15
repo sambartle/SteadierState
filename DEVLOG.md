@@ -212,3 +212,9 @@ Note: the whole USB disk is wiped (all partitions), not just the selected volume
 **Not testable here:** real diskpart/bcdedit, native VHD boot, WinPE itself, UAC/SmartScreen. The exe is unsigned. bcdedit output is parsed in English (identifier/description/device); a non-English Windows display language would need the parser extended.
 
 **Upgrade path for an already-deployed PC:** easiest is to rebuild the stick and redeploy. Otherwise (elevated, in Windows): copy srsmgr.exe to C:\srs, delete the old `bcddefault` scheduled task, run `C:\srs\srsmgr.exe /install`, then copy srsmgr.exe and the new startnethd.cmd (as Windows\System32\startnet.cmd) onto the SrS_Tools partition. Merge so the change sticks.
+
+## 2026-10-15 - srsmgr UI fixes from Sam's first real-Windows run
+
+**Reported (screenshot from Sam's PC):** button labels clipped ("Merge snapshot into intermediat"), the third disk-chain row cut off with a scrollbar, and the status message truncated with "...". Real Segoe UI is wider, and real ListView rows are taller, than in the Wine test.
+**Fix (srsmgr.c):** button font 15 -> 13 px semibold; disk-chain list 86 -> 104 px (group 118 -> 136); status text wraps over two lines instead of being ellipsised; windows 20 px taller (PE 592, desktop 620).
+The "(none)" chain and the "service isn't running and this program isn't elevated" message are expected on a PC without Steadier State deployed.

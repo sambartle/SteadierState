@@ -956,7 +956,7 @@ static WCHAR g_runAction[32];
 #define S(x) MulDiv((x), g_dpi, 96)
 #define BANNER_H 170
 #define CLIENT_W 780
-#define CLIENT_H (g_pe ? 572 : 600)
+#define CLIENT_H (g_pe ? 592 : 620)
 
 static const WCHAR *g_modes[] = { L"gui", L"autorollback", L"direct", L"automerge" };
 
@@ -1220,9 +1220,9 @@ static void build_ui(void)
     BOOL pe = g_pe;
     int y = BANNER_H + 8;
 
-    ctl(L"BUTTON", L"Disk chain", BS_GROUPBOX, 10, y, 760, 118, IDC_GRP_CHAIN, g_fontB);
+    ctl(L"BUTTON", L"Disk chain", BS_GROUPBOX, 10, y, 760, 136, IDC_GRP_CHAIN, g_fontB);
     HWND lv = ctl(WC_LISTVIEWW, L"", LVS_REPORT | LVS_NOSORTHEADER | LVS_SINGLESEL | WS_BORDER,
-                  20, y + 22, 740, 86, IDC_LIST, NULL);
+                  20, y + 22, 740, 104, IDC_LIST, NULL);
     ListView_SetExtendedListViewStyle(lv, LVS_EX_FULLROWSELECT);
     const WCHAR *cols[] = { L"Layer", L"File", L"Size", L"Last changed" };
     int cw[] = { 200, 200, 140, 180 };
@@ -1234,7 +1234,7 @@ static void build_ui(void)
         c.cx = S(cw[i]);
         ListView_InsertColumn(lv, i, &c);
     }
-    y += 126;
+    y += 144;
     ctl(L"STATIC", L"", SS_LEFT, 12, y, 756, 20, IDC_MODELINE, g_fontB);
     y += 22;
     if (!pe) { ctl(L"STATIC", L"", SS_LEFT, 12, y, 756, 20, IDC_PENDING, NULL); y += 22; }
@@ -1283,7 +1283,7 @@ static void build_ui(void)
     if (pe) ctl(L"BUTTON", L"Command prompt", BS_PUSHBUTTON, 10, y, 150, 30, IDC_B_CMD, NULL);
     else    ctl(L"BUTTON", L"Refresh", BS_PUSHBUTTON, 10, y, 150, 30, IDC_B_REFRESH, NULL);
     ctl(L"BUTTON", L"History", BS_PUSHBUTTON, 170, y, 110, 30, IDC_B_HIST, NULL);
-    ctl(L"STATIC", L"", SS_LEFT | SS_ENDELLIPSIS, 292, y + 6, 478, 22, IDC_STATUS, g_fontB);
+    ctl(L"STATIC", L"", SS_LEFT, 292, y - 2, 478, 38, IDC_STATUS, g_fontB);
 }
 
 static LRESULT CALLBACK wndproc(HWND h, UINT m, WPARAM w, LPARAM l)
@@ -1450,7 +1450,7 @@ static int run_gui(HINSTANCE hi)
     ReleaseDC(NULL, sdc);
     g_font = CreateFontW(-S(14), 0, 0, 0, FW_NORMAL, 0, 0, 0, DEFAULT_CHARSET, 0, 0, CLEARTYPE_QUALITY, 0, L"Segoe UI");
     g_fontB = CreateFontW(-S(14), 0, 0, 0, FW_SEMIBOLD, 0, 0, 0, DEFAULT_CHARSET, 0, 0, CLEARTYPE_QUALITY, 0, L"Segoe UI");
-    g_fontBtn = CreateFontW(-S(15), 0, 0, 0, FW_SEMIBOLD, 0, 0, 0, DEFAULT_CHARSET, 0, 0, CLEARTYPE_QUALITY, 0, L"Segoe UI");
+    g_fontBtn = CreateFontW(-S(13), 0, 0, 0, FW_SEMIBOLD, 0, 0, 0, DEFAULT_CHARSET, 0, 0, CLEARTYPE_QUALITY, 0, L"Segoe UI");
     g_banner = LoadBitmapW(hi, MAKEINTRESOURCEW(g_pe ? IDB_RED : IDB_BLUE));
 
     WNDCLASSEXW wc;
