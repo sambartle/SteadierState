@@ -159,3 +159,14 @@ Kept: `Rebuilding Steady State.pptx` (the original project's presentation; docum
 **Request (Sam):** replace disk.jpg with the red version of the Image-O-Tron logo.
 `background\disk.jpg` is now the red logo (1024x572) with the same "Booted from on-disk WinPE - Roll Back Windows" caption. usb.jpg stays blue, so the two WinPEs are easy to tell apart by colour. background\README.txt updated.
 To apply it to an already-deployed PC without redeploying, run `setbackground.cmd`, option 1.
+
+## 2026-10-15 - Fix: buildpe "Failed to format F:; DiskPart errorlevel -2147024809"
+
+**Reported by Sam:** `MakeWinPEMedia /ufd` failed with `ERROR: Failed to format "F:"; DiskPart errorlevel -2147024809`.
+**Cause:** -2147024809 = 0x80070057 (invalid parameter). MakeWinPEMedia /ufd formats the whole stick as FAT32, and Windows' format refuses FAT32 on volumes over 32GB, so most modern sticks fail.
+**Fix (buildpe.cmd):** MakeWinPEMedia /ufd is no longer used.
+1. `:makeiso` always runs first. It builds the requested ISO, or a temporary `%_buildpepath%\usbmedia.iso` (honouring `/bootex`).
+2. `:makeusb` uses PowerShell (Get-Partition/Get-Disk) to find the stick's disk number, bus type and size. It **refuses** the boot/system disk, and asks before wiping a disk that isn't on the USB bus.
+3. diskpart then runs clean, convert mbr, `create partition primary size=32000` (capped only when the stick is over 32000MB), format fat32 label WINPE (prepnewpc looks for that label), active, and assigns the same letter.
+4. The ISO is mounted (Mount-DiskImage) and robocopied to the stick, then dismounted. Robocopy rc < 8 counts as success, and it checks that `\EFI\Boot\bootx64.efi` exists.
+Note: the whole USB disk is wiped (all partitions), not just the selected volume. Any space beyond 32GB is left unallocated.

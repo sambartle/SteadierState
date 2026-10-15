@@ -401,22 +401,116 @@
 	set _madeusb=false
 	set _madeiso=false
 
-:makeusb
-	if %_makeusb%==false goto :makeiso
-	echo.
-	echo Writing WinPE to the USB stick with MakeWinPEMedia...
-	call MakeWinPEMedia /ufd /f %_bootex% "%_buildpepath%" %_usbdrive%: >"%_logdir%\06makeusb.txt"
-	if %errorlevel%==0 (
-		echo USB drive at %_usbdrive%: now ready.
-		set _madeusb=true
-		goto :makeiso
-	)
-	echo.
-	echo =============== ERROR: MakeWinPEMedia /ufd failed ===============
-	type "%_logdir%\06makeusb.txt"
-
 :makeiso
-	if %_makeiso%==false goto :errorcheck
+	rem
+	rem Always build an ISO first (to a temp file if none was asked for).
+	rem The USB stick is then made from the ISO's contents. This avoids
+	rem MakeWinPEMedia /ufd, which fails with 0x80070057 (-2147024809)
+	rem on sticks over 32GB because it formats the whole stick as FAT32.
+	rem It also means /bootex (2023 boot manager) works for USB too.
+	rem
+	set "_mediaiso=%_isopath%"
+	if not '%_makeiso%'=='true' set "_mediaiso=%_buildpepath%\usbmedia.iso"
+	echo.
+	echo Creating ISO with MakeWinPEMedia...
+	call MakeWinPEMedia /iso /f %_bootex% "%_buildpepath%" "%_mediaiso%" >"%_logdir%\07makeiso.txt"
+	if not %errorlevel%==0 (
+		echo.
+		echo =============== ERROR: MakeWinPEMedia /iso failed ===============
+		type "%_logdir%\07makeiso.txt"
+		goto :errorcheck
+	)
+	if '%_makeiso%'=='true' (
+		echo Your ISO is in %_isopath%.
+		set _madeiso=true
+	)
+
+:makeusb
+	if not '%_makeusb%'=='true' goto :errorcheck
+	echo.
+	echo Preparing the USB stick %_usbdrive%: ...
+	set _usbdisk=
+	for /f %%a in ('powershell -NoProfile -Command "(Get-Partition -DriveLetter %_usbdrive%).DiskNumber"') do set _usbdisk=%%a
+	if not defined _usbdisk (
+		echo ERROR: couldn't find which disk %_usbdrive%: is on.
+		goto :errorcheck
+	)
+	set _usbbus=
+	set _usbboot=
+	set _usbsys=
+	set _usbmb=
+	for /f "tokens=1-4" %%a in ('powershell -NoProfile -Command "$d=Get-Disk -Number %_usbdisk%; '{0} {1} {2} {3}' -f $d.BusType,$d.IsBoot,$d.IsSystem,[int64]($d.Size/1MB)"') do (
+		set _usbbus=%%a
+		set _usbboot=%%b
+		set _usbsys=%%c
+		set _usbmb=%%d
+	)
+	if not defined _usbmb (
+		echo ERROR: couldn't read the details of disk %_usbdisk%.
+		goto :errorcheck
+	)
+	echo   %_usbdrive%: is disk %_usbdisk%, bus=%_usbbus%, size=%_usbmb% MB
+	if /i "%_usbboot%"=="True" goto :usbrefuse
+	if /i "%_usbsys%"=="True" goto :usbrefuse
+	if /i "%_usbbus%"=="USB" goto :usbsize
+	echo.
+	echo WARNING: disk %_usbdisk% is not on the USB bus (%_usbbus%).
+	set _usbok=
+	set /p _usbok=Type 'y' to wipe it anyway, anything else to skip the USB: 
+	if /i not "%_usbok%"=="y" goto :errorcheck
+
+:usbsize
+	rem FAT32 (needed for UEFI boot) is limited to 32GB by Windows' format
+	set _usbsize=
+	if %_usbmb% GTR 32000 set _usbsize=size=32000
+	set "_usbdp=%_buildpepath%\usbdisk.txt"
+	>"%_usbdp%"  echo select disk %_usbdisk%
+	>>"%_usbdp%" echo clean
+	>>"%_usbdp%" echo convert mbr
+	>>"%_usbdp%" echo create partition primary %_usbsize%
+	>>"%_usbdp%" echo format quick fs=fat32 label="WINPE"
+	>>"%_usbdp%" echo active
+	>>"%_usbdp%" echo assign letter=%_usbdrive%
+	>>"%_usbdp%" echo exit
+	echo   Wiping and formatting disk %_usbdisk% ^(FAT32, label WINPE^)...
+	diskpart /s "%_usbdp%" >"%_logdir%\06makeusb.txt"
+	if not %errorlevel%==0 (
+		echo.
+		echo =============== ERROR: diskpart couldn't prepare the USB ===============
+		type "%_logdir%\06makeusb.txt"
+		goto :errorcheck
+	)
+	timeout /t 3 /nobreak >nul
+	set _isoltr=
+	for /f %%a in ('powershell -NoProfile -Command "(Mount-DiskImage -ImagePath '%_mediaiso%' -PassThru | Get-Volume).DriveLetter"') do set _isoltr=%%a
+	if not defined _isoltr (
+		echo ERROR: couldn't mount %_mediaiso%.
+		goto :errorcheck
+	)
+	echo   Copying WinPE files from the ISO ^(%_isoltr%:^) to %_usbdrive%: ...
+	robocopy %_isoltr%:\ %_usbdrive%:\ /E /R:1 /W:1 /NP /NFL /NDL >>"%_logdir%\06makeusb.txt"
+	set _usbcopyrc=%errorlevel%
+	powershell -NoProfile -Command "Dismount-DiskImage -ImagePath '%_mediaiso%'" >nul
+	if %_usbcopyrc% GEQ 8 (
+		echo.
+		echo =============== ERROR: copying files to the USB failed ===============
+		type "%_logdir%\06makeusb.txt"
+		goto :errorcheck
+	)
+	if not exist %_usbdrive%:\EFI\Boot\bootx64.efi (
+		echo ERROR: %_usbdrive%:\EFI\Boot\bootx64.efi missing after the copy.
+		goto :errorcheck
+	)
+	echo USB drive at %_usbdrive%: now ready.
+	set _madeusb=true
+	goto :errorcheck
+
+:usbrefuse
+	echo.
+	echo REFUSED: disk %_usbdisk% is this PC's boot/system disk. Not touching it.
+	goto :errorcheck
+
+:errorcheck
 	echo.
 	echo Creating ISO with MakeWinPEMedia...
 	call MakeWinPEMedia /iso /f %_bootex% "%_buildpepath%" "%_isopath%" >"%_logdir%\07makeiso.txt"
