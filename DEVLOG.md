@@ -260,3 +260,10 @@ The "(none)" chain and the "service isn't running and this program isn't elevate
 - All scripts: no missing/duplicate labels, balanced brackets, no unescaped `)` in block echoes, no `(OI)(CI)` inside blocks, CRLF.
 
 **Still only testable on real hardware:** real diskpart/bcdedit/native VHD boot, `GetStorageDependencyInformation` on a VHD-booted system, the pipe ACL with real interactive/RDP logons, icacls on a real Physical Drive.
+
+## 2026-10-15 - Fix: firstrun locked even Administrators out of C:\srs files
+
+**Reported by Sam (real PC):** firstrun printed "Successfully processed 15 files" for C:\srs, then "Access is denied". A re-run failed immediately. Diagnostics showed the C:\srs **folder** ACL was correct, but every **file** (firstrun.cmd, srsmgr.exe) denied even an elevated Administrator, including reading the ACL. `takeown /r` + `icacls /reset /t` restored access.
+**Cause:** `icacls C:\srs /inheritance:r /grant:r <SID>:(OI)(CI)F ... /T` applies the grants to every file as well. Folder-style (OI)(CI) grants on files left them with an effectively empty, deny-everyone DACL. (Not Smart App Control, which was off; and the code-integrity log had no blocks.)
+**Fix:** set the protected ACL on the folder only (no /T), then `icacls <folder>\* /reset /T` so the contents simply inherit it. firstrun then checks it can still read srsmgr.exe and stops with repair instructions if not. Same change in hooks/1110-security.cmd for C:\srs and \srsdirectives. The Physical Drive root line was already root-only.
+**Recovery on an affected PC (elevated):** `takeown /f C:\srs /r /d y` then `icacls C:\srs /reset /t /c` (srs-fixacl.cmd does this), copy in the new firstrun.cmd and hooks\1110-security.cmd, and run firstrun again.

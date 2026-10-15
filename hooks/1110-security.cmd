@@ -23,14 +23,18 @@
 	rem C:\srs: Users keep read/execute so anyone can run the Image-O-Tron app
 	rem (firstrun already set this before installing the service; re-applied
 	rem here in case the hook is run on its own).
-	icacls %systemdrive%\srs /inheritance:r /grant:r *S-1-5-18:(OI)(CI)F *S-1-5-32-544:(OI)(CI)F *S-1-5-32-545:(OI)(CI)RX /T /C /Q
+	rem folder only, then make the contents inherit (never /T with (OI)(CI)
+	rem grants - on files that leaves an empty, deny-everyone ACL)
+	icacls %systemdrive%\srs /inheritance:r /grant:r *S-1-5-18:(OI)(CI)F *S-1-5-32-544:(OI)(CI)F *S-1-5-32-545:(OI)(CI)RX /C /Q
+	icacls %systemdrive%\srs\* /reset /T /C /Q
 	echo.
 	if "%_phydrivepassed%"=="" goto :nophy
 	if not exist %_phydrivepassed%:\srsdirectives md %_phydrivepassed%:\srsdirectives
 	if not exist %_phydrivepassed%:\srsdirectives goto :nodir
 	rem srsdirectives (settings, logs): SYSTEM + Administrators only. The
 	rem SrsMgr service (SYSTEM) does the work for ordinary users.
-	icacls %_phydrivepassed%:\srsdirectives /inheritance:r /grant:r *S-1-5-18:(OI)(CI)F *S-1-5-32-544:(OI)(CI)F /T /C /Q
+	icacls %_phydrivepassed%:\srsdirectives /inheritance:r /grant:r *S-1-5-18:(OI)(CI)F *S-1-5-32-544:(OI)(CI)F /C /Q
+	icacls %_phydrivepassed%:\srsdirectives\* /reset /T /C /Q 2>nul
 	goto :goodend
 
 :nophy

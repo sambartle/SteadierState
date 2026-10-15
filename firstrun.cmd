@@ -54,12 +54,25 @@
 	rem Users create/modify by default, so replace the inherited ACL first:
 	rem SYSTEM + Administrators full, Users read/execute (to run the app).
 	rem SIDs, not names, so this works on any display language.
+	rem Set the ACL on the FOLDER only, then reset everything inside it to
+	rem inherit from the folder. (Applying (OI)(CI) grants to each file with
+	rem /T leaves files with an empty, deny-everyone ACL - that locked even
+	rem Administrators out of firstrun.cmd and srsmgr.exe.)
 	echo Locking down %_srsdir% ...
-	icacls "%_srsdir%" /inheritance:r /grant:r *S-1-5-18:(OI)(CI)F *S-1-5-32-544:(OI)(CI)F *S-1-5-32-545:(OI)(CI)RX /T /C /Q
-	if errorlevel 1 (
-		echo ERROR: couldn't set permissions on %_srsdir%.
-		goto :badend
-	)
+	icacls "%_srsdir%" /inheritance:r /grant:r *S-1-5-18:(OI)(CI)F *S-1-5-32-544:(OI)(CI)F *S-1-5-32-545:(OI)(CI)RX /C /Q
+	if errorlevel 1 goto :aclfail
+	icacls "%_srsdir%\*" /reset /T /C /Q
+	if errorlevel 1 goto :aclfail
+	rem sanity check: we must still be able to read our own files
+	type "%_srsdir%\srsmgr.exe" >nul 2>&1 || goto :aclfail
+	goto :aclok
+
+:aclfail
+	echo ERROR: couldn't set permissions on %_srsdir% ^(or they block access^).
+	echo Repair with:  takeown /f "%_srsdir%" /r /d y  and  icacls "%_srsdir%" /reset /t
+	goto :badend
+
+:aclok
 	if not defined _phydrive goto :installsvc
 	rem The Physical Drive root normally lets Authenticated Users modify, so
 	rem anyone could tamper with the VHD files. Lock it the same way, and
