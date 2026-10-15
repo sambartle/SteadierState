@@ -215,198 +215,50 @@ wpeinit
 
 :vhdcheck
 	rem
-	rem Verify there's a file \image.vhd and \snapshot.vhd on the current drive
+	rem Everything from here on is done by the Image-O-Tron boot manager
+	rem (X:\srs\srsmgr.exe): first snapshot, scheduled actions, the boot
+	rem modes (GUI / auto-rollback / auto-merge / straight to Windows) and
+	rem the boot entries. Settings: <Physical Drive>\srsdirectives\srs.ini
 	rem
-	set _noimage=false
-	If not exist %_phydrive%\image.vhd set _noimage=true
-	set _nosnap=false
-	If not exist %_phydrive%\snapshot.vhd set _nosnap=true
-
-:filecheck
-	rem
-	rem Check if automerge.txt and/or noauto.txt exist
-	rem
-	set _automerge=false
-	set _noauto=false
-	for /f "tokens=3" %%a in ('diskpart /s %_actdrive%\srs\listvolume.txt') do (
-		if exist %%a:\srsdirectives\automerge.txt (
-			set _automerge=true
-			set _amfile=%%a:\srsdirectives\automerge.txt
-		)
-		if exist %%a:\srsdirectives\noauto.txt (
-			set _noauto=true
-			set _noafile=%%a:\srsdirectives\noauto.txt
-		)
+	if not exist %_phydrive%\image.vhd goto :noimage
+	if not exist X:\srs\srsmgr.exe (
+		echo.
+		echo X:\srs\srsmgr.exe is missing - can't continue automatically.
+		goto :shell
 	)
 
-:logic
-	rem
-	rem If _noimage=false AND _nosnap=false AND _noauto=false, do auto rollback
-	rem
-	if %_noimage%%_nosnap%%_noauto%%_automerge%==falsefalsefalsefalse goto :autoroll
-	rem
-	rem If _noimage=true, show "next step" message and return to prompt, as
-	rem the user's in the middle of getting things going.
-	rem
-	if %_noimage%==true goto :noimage
-	rem
-	rem If _nosnap=true, we have an image but no snapshot, so just set up that snapshot
-	rem and tell the user what we did.  (Advise here about noauto.txt as well.)
-	rem
-	if %_nosnap%==true goto :nosnap
-	rem
-	rem If _automerge=true, we have to automatically merge the snapshot.vhd and image.vhd
-	rem
-	if %_automerge%==true goto :automerge
-	rem
-	rem Otherwise, we're asking for user input
-	rem
-	goto :showshell
+:launch
+	echo.
+	echo Starting the Image-O-Tron boot manager...
+	start "" /wait X:\srs\srsmgr.exe /pe /phy %_phydrive% /store "%_efidrive%\EFI\Microsoft\Boot\BCD"
+	set _mgrrc=%errorlevel%
+	if "%_mgrrc%"=="0" (
+		wpeutil reboot
+		goto :end
+	)
+	if "%_mgrrc%"=="1" (
+		wpeutil shutdown
+		goto :end
+	)
 
-:autoroll
-	rem
-	rem Call rollback.cmd
-	rem if something goes wrong and the user needs to see it, there's
-	rem a "99" exit code; otherwise "exit" to cause an auto reboot
-	rem
-	set _rollbackrc=99
-	call X:\srs\rollback.cmd
-	if "%_rollbackrc%"=="0" exit
-	goto :badend
+:shell
+	echo.
+	echo ===============================================================
+	echo  Image-O-Tron maintenance prompt
+	echo ===============================================================
+	echo  Physical Drive: %_phydrive%    EFI partition: %_efidrive%
+	echo.
+	echo  To reopen the boot manager:
+	echo     X:\srs\srsmgr.exe /pe /phy %_phydrive% /store "%_efidrive%\EFI\Microsoft\Boot\BCD"
+	echo  Type 'exit' to restart the PC.
+	echo.
+	goto :end
 
 :noimage
-	rem
-	rem if here, \image.vhd wasn't found
-	rem
 	echo.
-	echo Hi.  I see that you've prepared this computer's hard disk to
-	echo use Steadier State, but haven't yet put an image on %_phydrive%.
-	echo.
-	echo Steadier State depends on a system image named image.vhd
-	echo residing on your large partition, what is probably drive %_phydrive%.
-	echo Please reboot using the Steadier State USB/DVD and run
-	echo prepnewpc.cmd before going any further.
-	echo.
-	echo If you DON'T have an image.vhd yet, it's easy to make one. Just
-	echo get a Windows 11 Pro/Enterprise/Education machine exactly as you want it,
-	echo then boot that system with your Steadier State USB/DVD.  Run
-	echo the command "cvt2vhd" and follow the instructions that'll
-	echo appear on the screen. Once you've got your image.vhd copied to
-	echo %_phydrive%\, then run "rollback"  from the command line and
-	echo it'll get your snapshot set up so that you can use Steadier
-	echo State to instantly roll back your computer to a snapshot.
-	echo.
-	echo Thanks for using Steadier State, I hope it's helpful.
-	echo -- Mark Minasi help@minasi.com www.steadierstate.com
-	goto :end
-
-:nosnap
-	rem
-	rem if here, \snapshot.vdh wasn't found
-	rem
-	echo.
-	echo Creating initial snapshot file
-	set _rollbackrc=99
-	call X:\srs\rollback.cmd
-	if "%_rollbackrc%"=="0" goto :goodend
-	goto :badend
-
-:automerge
-	rem
-	rem if here, %_phydrive%\automerge.txt was found
-	rem
-	echo.
-	echo Automatically merging snapshot.vhd and image.vhd
-	echo System will reboot automatically when done.
-	del %_amfile% 2>nul
-	set _mergerc=99
-	call X:\srs\merge.cmd
-	if "%_mergerc%"=="0" exit
-	goto :badend
-
-:showshell
-	rem
-	rem otherwise, delete noauto.txt and offer options
-	rem
-	if defined _noafile del "%_noafile%" 2>nul
-	echo.
-	echo Hi.  You're here because you booted your system to the "Roll
-	echo Back Windows" Partition and had a noauto.txt file located at
-	echo %_noafile%. I have deleted it so that you can
-	echo simply reboot when done.
-	echo To roll back your copy of Windows to
-	echo when you created its last snapshot, type:
-	echo.
-	echo 'rollback' and hit enter.
-	echo.
-	echo If you want to keep the changes that you've made to your system
-	echo since the last snapshot (which deletes the current snapshot and
-	echo creates a new one), type:
-	echo.
-	echo 'merge' and hit enter.
-	echo.
-	echo Type anything else to exit this script and use the command prompt.
-	set /p _response=What is your answer? 
-	if '%_response%'=='' goto :end
-	if '%_response%'=='merge' goto :merge
-	if '%_response%'=='rollback' goto :rollback
-	goto :end
-
-:rollback
-	rem
-	rem User chose to rollback
-	rem
-	echo.
-	echo Warning: ROLLBACK discards every change made since the last
-	echo snapshot. snapshot.vhd is deleted and replaced with a fresh,
-	echo empty one, so Windows returns to the state stored in image.vhd.
-	echo This can't be undone. Type 'y' and press Enter to ROLL BACK, or
-	echo type anything else and press Enter to cancel and keep your changes.
-	set /p _confirm=What is your response? 
-	if not '%_confirm%'=='y' goto :end
-	echo.
-	echo Okay, then let's continue.
-	set _rollbackrc=99
-	call X:\srs\rollback.cmd
-	if "%_rollbackrc%"=="0" goto :goodend
-	goto :badend
-
-:merge
-	rem
-	rem User chose to merge snapshot.vhd into image.vhd
-	rem
-	echo.
-	echo Warning: This will merge whatever's in your current snapshot
-	echo (snapshot.vhd) into your base image (image.vhd) file on this
-	echo computer. This change isn't reversible, so I'm just double-
-	echo checking to see that you mean it. Please enter 'y' and press
-	echo enter to merge, or type anything else and press enter to change
-	echo your mind and NOT merge the files.
-	set /p _confirm=What is your response? 
-	if not '%_confirm%'=='y' goto :end
-	echo.
-	echo Okay, then let's continue.
-	set _mergerc=99
-	call X:\srs\merge.cmd
-	if "%_mergerc%"=="0" goto :goodend
-	goto :badend
-
-:goodend
-	rem
-	rem Success
-	rem
-	echo.
-	echo To make the system henceforth roll back and reboot
-	echo AUTOMATICALLY the next time someone reboots this system ensure
-	echo that no drive contains a file named "noauto.txt" in its root.
-	echo Inversely,  if you ever DO want to see this command prompt
-	echo window when "Roll Back Windows" is chosen as the boot device,
-	echo create a file named "noauto.txt" in the root of any drive
-	echo letter. (See the documentation for more details on noauto.txt.)
-	echo.
-	echo Thanks for using Steadier State, I hope it's helpful.
-	echo -- Mark Minasi help@minasi.com www.steadierstate.com
-	goto :end
+	echo image.vhd isn't on %_phydrive% yet. Boot the Steadier State USB
+	echo stick and run prepnewpc to deploy an image.vhd made with cvt2vhd.
+	goto :shell
 
 :notwinpe
 	echo.

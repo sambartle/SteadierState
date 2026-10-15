@@ -385,7 +385,7 @@
 	robocopy %_actdrive%\srs %_srsdrive%\srs /E >nul
 	copy %_actdrive%\startnethd.cmd %_srsdrive%\windows\system32\startnet.cmd /y
 	md %_vhddrive%\srs 2>nul
-	for %%f in (bcddefault.cmd debugmode.cmd firstrun.cmd listvolume.txt) do copy %_actdrive%\srs\%%f %_vhddrive%\srs /y >nul
+	for %%f in (firstrun.cmd listvolume.txt srsmgr.exe) do copy %_actdrive%\srs\%%f %_vhddrive%\srs /y >nul
 	md %_vhddrive%\srs\hooks 2>nul
 	copy %_actdrive%\srs\hooks\* %_vhddrive%\srs\hooks /y >nul
 	md %_vhddrive%\srs\hooks-samples 2>nul

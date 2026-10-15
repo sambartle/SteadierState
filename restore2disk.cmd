@@ -234,14 +234,19 @@
 	rem
 	rem Remove Steadier State leftovers that matter on a normal install:
 	rem the NoDrives policy (could hide a drive) and the C:\srs folder.
-	rem The bcddefault scheduled task (only present if firstrun ran in
-	rem this image) is harmless: it looks for "Roll Back Windows", finds
-	rem nothing and does nothing. Delete it after boot if you like.
+	rem The SrsMgr service (if firstrun ran in this image) is removed
+	rem from the offline SYSTEM hive; on a normal install it would only
+	rem log that it can't find the Physical_Drive.
 	rem
 	reg load HKLM\SRS_RST %_win%:\Windows\System32\config\SOFTWARE >nul 2>&1
 	if %errorlevel%==0 (
 		reg delete "HKLM\SRS_RST\Microsoft\Windows\CurrentVersion\Policies\Explorer" /v NoDrives /f >nul 2>&1
 		reg unload HKLM\SRS_RST >nul 2>&1
+	)
+	reg load HKLM\SRS_RSY %_win%:\Windows\System32\config\SYSTEM >nul 2>&1
+	if %errorlevel%==0 (
+		reg delete "HKLM\SRS_RSY\ControlSet001\Services\SrsMgr" /f >nul 2>&1
+		reg unload HKLM\SRS_RSY >nul 2>&1
 	)
 	if exist %_win%:\srs rd /s /q %_win%:\srs
 
@@ -263,8 +268,8 @@
 	echo Remove the USB stick and reboot. Windows now runs directly from
 	echo disk %_disknum% (no VHD). If the image was sysprepped it will go
 	echo through OOBE first.
-	echo After boot you can optionally run (elevated):
-	echo     schtasks /Delete /TN bcddefault /F
+	echo Delete the Image-O-Tron shortcuts from the desktop / Start menu
+	echo if they came across with the image.
 	goto :end
 
 :detachvhd

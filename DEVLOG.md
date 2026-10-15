@@ -170,3 +170,45 @@ To apply it to an already-deployed PC without redeploying, run `setbackground.cm
 3. diskpart then runs clean, convert mbr, `create partition primary size=32000` (capped only when the stick is over 32000MB), format fat32 label WINPE (prepnewpc looks for that label), active, and assigns the same letter.
 4. The ISO is mounted (Mount-DiskImage) and robocopied to the stick, then dismounted. Robocopy rc < 8 counts as success, and it checks that `\EFI\Boot\bootx64.efi` exists.
 Note: the whole USB disk is wiped (all partitions), not just the selected volume. Any space beyond 32GB is left unallocated.
+
+## 2026-10-15 - Image-O-Tron 11,000 rollback manager (srsmgr.exe)
+
+**Request (Sam):** a small GUI app at boot (WinPE) and on the desktop to choose rollback / continue / merge, plus a new "intermediate" snapshot level; desktop version schedules actions for the next boot; a mode that always auto-rolls back with no GUI.
+
+**Decisions (agreed with Sam before building):**
+| Topic | Choice |
+|---|---|
+| Technology | Native Win32 C (single exe, no runtime dependencies; MinGW-w64) |
+| Snapshot depth | One intermediate level: image.vhd <- intermediate.vhd <- snapshot.vhd |
+| Boot screen timeout | Countdown then Continue; countdown configurable (default 15 s, 0 = wait forever) |
+| Who can use the desktop app | Anyone, via a SYSTEM service (named pipe, Authenticated Users read/write) |
+| Modes | gui (default after firstrun), autorollback, automerge, direct (skip WinPE) |
+| Auto target | Configurable: intermediate (default, if present) or base |
+| WinPE extras | Command prompt button, chain sizes/dates, shut-down-after option, history log |
+| Old noauto/automerge/debugmode/bcddefault | Removed |
+| Branding | Image-O-Tron 11,000 banners: red in WinPE, blue on the desktop |
+
+**Files:**
+- `srsmgr\srsmgr.c` (source), `srsmgr.rc`, `resource.h`, `srsmgr.manifest` (asInvoker, dpiAware, no comctl32 v6 dependency so it always starts in WinPE), `styles.manifest` (comctl32 v6, activated at runtime only if present), `banner_blue.bmp`/`banner_red.bmp` (760x170 crops of Sam's logos), `srsmgr.ico`, `build.sh`.
+- `srsmgr.exe` (built, about 1MB, mostly the banners). Imports only ADVAPI32, COMCTL32, GDI32, KERNEL32, msvcrt, SHELL32 and USER32, all of which are present in WinPE.
+- **Removed:** bcddefault.cmd, rollback.cmd, merge.cmd, debugmode.cmd, hooks\1000-rollback.cmd (the bcddefault scheduled task).
+- **startnethd.cmd:** keeps the drive-letter discovery; everything after `:vhdcheck` now runs `start /wait X:\srs\srsmgr.exe /pe /phy <P:> /store "<EFI>\EFI\Microsoft\Boot\BCD"`. Exit code 0 = `wpeutil reboot`, 1 = `wpeutil shutdown`, anything else = maintenance prompt (also used if the exe is missing or crashes).
+- **firstrun.cmd:** runs `srsmgr /install` (installs and starts the service, creates srs.ini with mode=gui, sets the boot entries) and creates "Image-O-Tron 11,000" shortcuts on the Public Desktop and in the Start menu.
+- **buildpe / prepnewpc:** copy srsmgr.exe into the stick's and the VHD's \srs.
+- **restore2disk:** also deletes the SrsMgr service from the offline SYSTEM hive.
+- **hooks-samples 9900/9901:** now `srsmgr /schedule rollback|merge /now` as SYSTEM scheduled tasks.
+- **README:** Image-O-Tron section (chain, actions, modes, settings/logs, CLI, boot-entry logic). The Directives and Operating Modes sections are removed.
+
+**Boot-entry logic:** the default is "Roll Back Windows" in every mode except direct. After an action, WinPE sets a one-time `bootsequence` into the snapshot entry, so crashes and power cuts return to the boot manager. In direct mode the default is the snapshot, and scheduling sets a one-time bootsequence into WinPE. The service re-applies this at every Windows start (replacing the old bcddefault task). The snapshot entry is created by WinPE if it's missing.
+
+**Actions (WinPE, diskpart):** files are only deleted after the preceding merge/create succeeded. promote = rename snapshot->intermediate, then create a new snapshot (the rename is undone if the create fails). merge_base with an intermediate = merge snapshot->intermediate, then intermediate->image, then recreate. A scheduled action that fails is cleared (and logged) so it isn't retried on every boot.
+
+**Testing done here (Wine 9 + Xvfb, with stand-in diskpart.exe/bcdedit.exe that log calls and create files):**
+- PE screen and desktop screen render correctly (screenshots checked).
+- Scenarios pass: initial snapshot, promote, merge_base with intermediate + shutdown (exit 1), autorollback to intermediate, autorollback to base, automerge, direct/continue, invalid pending (fails safely). Simulated diskpart failures leave all files intact; a failed promote restores the snapshot name.
+- Service install/start under Wine's SCM, pipe STATUS/SCHEDULE/SET/CANCEL, the CLI, and validation of bad values.
+- Found and fixed during testing: Wine can't open files via `\\?\Volume{}` paths, so the service now prefers the volume's drive letter (real Windows supports both); a failed pending action was retried on every boot (fixed); the desktop window was clipped (fixed).
+
+**Not testable here:** real diskpart/bcdedit, native VHD boot, WinPE itself, UAC/SmartScreen. The exe is unsigned. bcdedit output is parsed in English (identifier/description/device); a non-English Windows display language would need the parser extended.
+
+**Upgrade path for an already-deployed PC:** easiest is to rebuild the stick and redeploy. Otherwise (elevated, in Windows): copy srsmgr.exe to C:\srs, delete the old `bcddefault` scheduled task, run `C:\srs\srsmgr.exe /install`, then copy srsmgr.exe and the new startnethd.cmd (as Windows\System32\startnet.cmd) onto the SrS_Tools partition. Merge so the change sticks.

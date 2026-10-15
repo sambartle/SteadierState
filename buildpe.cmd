@@ -142,16 +142,16 @@
 	echo ===============================================================
 	echo Where are the Steadier State files?
 	echo.
-	echo Please enter the folder containing bcddefault.cmd, cvt2vhd.cmd,
-	echo firstrun.cmd, listvolume.txt, merge.cmd, prepnewpc.cmd,
-	echo rollback.cmd and startnethd.cmd, or type 'end' to exit.
+	echo Please enter the folder containing cvt2vhd.cmd, firstrun.cmd,
+	echo listvolume.txt, prepnewpc.cmd, srsmgr.exe and startnethd.cmd,
+	echo or type 'end' to exit.
 	set /p _srspath=Folder:
 	if /i "%_srspath%"=="end" goto :end
 
 :filescheck
 	echo.
 	echo Checking for the files in folder "%_srspath%"...
-	for %%f in (bcddefault.cmd cvt2vhd.cmd firstrun.cmd listvolume.txt merge.cmd prepnewpc.cmd rollback.cmd startnethd.cmd hooks hooks-samples) do (
+	for %%f in (cvt2vhd.cmd firstrun.cmd listvolume.txt prepnewpc.cmd srsmgr.exe startnethd.cmd hooks hooks-samples) do (
 		if not exist "%_srspath%\%%f" (
 			echo.
 			echo -------- ERROR -----------
@@ -362,7 +362,7 @@
 	echo.
 	echo Copying Steadier State scripts into the image...
 	md "%_buildpepath%\mount\srs" >nul 2>&1
-	for %%f in (bcddefault.cmd debugmode.cmd firstrun.cmd listvolume.txt merge.cmd rollback.cmd) do copy "%_srspath%\%%f" "%_buildpepath%\mount\srs" /y >nul
+	for %%f in (firstrun.cmd listvolume.txt srsmgr.exe) do copy "%_srspath%\%%f" "%_buildpepath%\mount\srs" /y >nul
 	for %%f in (cvt2vhd.cmd prepnewpc.cmd restore2disk.cmd startnethd.cmd) do copy "%_srspath%\%%f" "%_buildpepath%\mount" /y >nul
 	md "%_buildpepath%\mount\srs\hooks" >nul 2>&1
 	copy "%_srspath%\hooks\*.cmd" "%_buildpepath%\mount\srs\hooks" /y >nul

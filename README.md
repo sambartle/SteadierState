@@ -56,75 +56,70 @@ There are five phases (phase 0 is new for Windows 11):
 ### Phase 4 -- Finalize the SteadierState deployment on the PC.
 
   1. Boot the PC which you deployed with SteadierState in **Phase 3**.
-  2. Customize and make any further desired changes on the PC (see **Directives**, **Hooks**, and **Operating Modes** below).
+  2. Customize and make any further desired changes on the PC (see **Image-O-Tron** and **Hooks** below).
   3. Open a Command Prompt window **as an Administrator**.
   4. In the Command Prompt window opened in **step 3.**, initiate the SteadierState rollback point with the `c:\srs\firstrun.cmd` command.
   3. Should something go wrong during the `C:\srs\firstrun.cmd` execution, follow the suggestions offered by the error message.
-  5. Reboot the PC and the next boot should be to WindowsPE which will perform the final configurations of a snapshot.vhd and a corresponding boot entry.
+  5. Reboot. `firstrun` has installed the Image-O-Tron service and app, so the next boot goes to the on-disk WinPE, which creates `snapshot.vhd` and its boot entry and starts Windows. From then on the Image-O-Tron boot screen appears on every boot (the default mode).
 
-## Directives
-SteadierState target PC's which have completed **Phase 4** are essentially deployment ready. There are times which admins will need to perform some type of maintenance or configuration adjustments on these deployment ready PC's. SteadierState utilizes the local install of WindowsPE and what is called **Directives** to change the default deployment configurations. There are two primary **Directives** "*noauto*" and "*automerge*". To activate **Directives** simply place a file named appropriately ("*noauto.txt*" or "*automerge.txt*") in a directory named `\srsdirectives` on the drive containing the image.vhd and snapshot.vhd. Note: The contents of the **Directives** file does not matter only the name.
+## Image-O-Tron 11,000 (rollback manager)
 
-### Directive "*noauto*"
-The noauto directive tells the WindowsPE install to take no automatic action. To enable the "*noauto*" directive perform the following steps:
+`srsmgr.exe` replaces the old `noauto.txt` / `automerge.txt` directives, `rollback.cmd`, `merge.cmd`, `bcddefault.cmd` and `debugmode.cmd`. It's a single native program (source in `srsmgr\`, build with `srsmgr\build.sh`) that runs in three places:
 
-  1. Assume that D: is the drive containing the image.vhd, snapshot.vhd, and the \srsdirectives folder.
-  2. Open a Command Prompt window **as an Administrator**.
-  3. In the Command Prompt window opened in **step 3.**, run the following command `echo > D:\srsdirectives\noauto.txt`.
-  4. Reboot the PC and the next boot should be to WindowsPE with the "*noauto*" directive.
+| Where | Look | What it does |
+|---|---|---|
+| On-disk WinPE, every boot (launched by `startnet.cmd`) | Red banner | Shows the disk chain, counts down, and runs the chosen action |
+| Windows desktop (shortcut "Image-O-Tron 11,000") | Blue banner | Schedules an action for the next boot, changes the boot mode, shows history |
+| `SrsMgr` Windows service (installed by `firstrun`) | - | Does the privileged parts for the desktop app, so **any user** can use it, and keeps the boot entries in step with the mode at every start |
 
-### Directive "*automerge*"
-The automerge directive tells the WindowsPE install to automerge the image.vhd and the snapshot.vhd to a new image.vhd. To enable the "*automerge*" directive perform the following steps:
+### The disk chain
 
-  1. Assume that D: is the drive containing the image.vhd, snapshot.vhd, and the \srsdirectives folder.
-  2. Open a Command Prompt window **as an Administrator**.
-  3. In the Command Prompt window opened in **step 3.**, run the following command `echo > D:\srsdirectives\automerge.txt`.
-  4. Reboot the PC and the next boot should be to WindowsPE with the "*automerge*" directive.
+`image.vhd` (base) &larr; `intermediate.vhd` (optional, one level) &larr; `snapshot.vhd` (what Windows runs on)
 
+| Action | Effect |
+|---|---|
+| Continue | Boot the snapshot unchanged (WinPE only) |
+| Roll back to intermediate | Discard the snapshot, new empty snapshot on the intermediate |
+| Roll back to base | Discard the snapshot **and** the intermediate, new empty snapshot on image.vhd |
+| Merge snapshot into intermediate | Keep the changes permanently in intermediate.vhd |
+| Merge all into base | Keep everything permanently in image.vhd (intermediate too) |
+| Make snapshot the intermediate | The current snapshot becomes the intermediate baseline, with a fresh snapshot on top (only when there's no intermediate yet) |
 
-### Directive Examples
-To provide an understanding of how these **Directives** can be used please examine the following examples.
+Merges and rollbacks ask for confirmation. If a step fails, no files are deleted and the error is shown (and logged).
 
-#### Example: How can I boot my SteadierState PC to WindowsPE for diagnostics image running "*Roll Back Mode*"?
+### Boot modes
 
-  1. Assume that D: is the drive containing the image.vhd, snapshot.vhd, and the \srsdirectives folder.
-  2. Boot the PC up which will be in the pristine state of deployment.
-  3. Apply the configuration adjustments desired.
-  4. Open a Command Prompt window **as an Administrator**.
-  5. In the Command Prompt window opened in **step 3.**, run the following command `echo > D:\srsdirectives\noauto.txt`.
-  6. Reboot the PC and the next boot should be to WindowsPE with the "*noauto*" directive.
+| Mode | Every boot... |
+|---|---|
+| **Show this screen on every boot** (default) | WinPE shows the boot screen; after the countdown (default 15 s, configurable, 0 = wait forever) it continues into Windows unchanged |
+| **Always roll back automatically** | Rolls back silently (the original Steadier State behaviour) |
+| **Always merge automatically** | Keeps the changes silently |
+| **Straight to Windows** | Skips WinPE entirely (fastest boot). Actions scheduled from the desktop app still run on the next boot. Good for debugging drivers etc. |
 
-#### Example: How can I boot my SteadierState PC to WindowsPE for diagnostics image running "*Delta Mode*"?
+"Automatic modes act on": **Intermediate** (if there is one, else the base) or always **Base**. A scheduled action always runs silently on the next boot, whatever the mode, and can be followed by a shutdown instead of starting Windows.
 
-  1. Assume that D: is the drive containing the image.vhd, snapshot.vhd, and the \srsdirectives folder.
-  2. Boot the PC up which will be in the pristine state of deployment.
-  3. Apply the configuration adjustments desired.
-  4. Open a Command Prompt window **as an Administrator**.
-  5. In the Command Prompt window opened in **step 3.**, run the following command `echo > D:\srsdirectives\noauto.txt`.
-  6. In the Command Prompt window opened in **step 3.**, run the following command `C:\srs\bcddefault.cmd`.
-  7. Reboot the PC and the next boot should be to WindowsPE with the "*noauto*" directive.
+### Settings and logs (on the Physical Drive)
 
-#### Example: How can I upgrade my SteadierState PC base image running "*Roll Back Mode*"?
+* `\srsdirectives\srs.ini`: mode, autotarget, countdown, pending action. Edited by the app; commented if you want to edit it by hand.
+* `\srsdirectives\history.log`: every action, when, where and the result ("History" button in both versions).
+* `\srsdirectives\srsmgr-last.log`: the full diskpart/bcdedit output of the last operation, for troubleshooting.
 
-  1. Assume that D: is the drive containing the image.vhd, snapshot.vhd, and the \srsdirectives folder.
-  2. Boot the PC up which will be in the pristine state of deployment.
-  3. Apply the configuration adjustments desired.
-  4. Open a Command Prompt window **as an Administrator**.
-  5. In the Command Prompt window opened in **step 3.**, run the following command `echo > D:\srsdirectives\automerge.txt`.
-  6. Reboot the PC and the next boot should be to WindowsPE with the "*automerge*" directive.
+### Command line (scripts, hooks, scheduled tasks)
 
-#### Example: How can I upgrade my SteadierState PC base image running "*Delta Mode*"?
+```
+C:\srs\srsmgr.exe /status
+C:\srs\srsmgr.exe /schedule <rollback|merge|rollback_inter|rollback_base|merge_inter|merge_base|promote> [/shutdown] [/now]
+C:\srs\srsmgr.exe /cancel
+C:\srs\srsmgr.exe /set mode <gui|autorollback|direct|automerge>
+C:\srs\srsmgr.exe /set autotarget <intermediate|base>
+C:\srs\srsmgr.exe /set countdown <seconds>
+```
 
-  1. Assume that D: is the drive containing the image.vhd, snapshot.vhd, and the \srsdirectives folder.
-  2. Boot the PC up which will be in the pristine state of deployment.
-  3. Apply the configuration adjustments desired.
-  4. Open a Command Prompt window **as an Administrator**.
-  5. In the Command Prompt window opened in **step 3.**, run the following command `echo > D:\srsdirectives\automerge.txt`.
-  6. In the Command Prompt window opened in **step 3.**, run the following command `C:\srs\bcddefault.cmd`.
-  7. Reboot the PC and the next boot should be to WindowsPE with the "*automerge*" directive.
+`rollback` and `merge` go to the intermediate if there is one (and autotarget isn't `base`), otherwise to the base. `/now` restarts straight away.
 
-### Debugging without losing changes on reboot (debugmode)
-`C:\srs\debugmode.cmd on` (elevated) pauses Roll Back Mode, so reboots keep changes, e.g. while debugging drivers. `debugmode off` makes the next reboot roll everything back, and `debugmode keep` merges the changes into image.vhd instead.
+### How the boot entries are used
+
+The default boot entry is "Roll Back Windows" (WinPE) in every mode except Straight to Windows. After an action, WinPE sets a **one-time** boot (`bootsequence`) into the snapshot. So a power cut or crash always ends up back at the boot manager. In Straight to Windows mode the default is the snapshot, and scheduling an action sets a one-time boot into WinPE.
 
 ### Going back to a normal install (restore2disk)
 Boot the USB stick and run `restore2disk`. It wipes the disk you choose and applies `image.wim` (left by cvt2vhd) or `image.vhd` from an external drive as a normal, non-VHD Windows install.
@@ -161,18 +156,8 @@ SteadierState now has a new feature called first run hooks. First run hooks prov
 
 | Hook | What it does |
 |---|---|
-| `1000-rollback.cmd` | Scheduled task that makes every reboot go to "Roll Back Windows" (Roll Back Mode). |
 | `1050-win11-vhdboot.cmd` | **New.** Sets `PreventDeviceEncryption`, turns off hibernation and Fast Startup. |
 | `1100-registrynodrives.cmd` | Hides the Physical Drive in Explorer. **Fixed:** it used to write the wrong bitmask for E: onwards. |
 | `1110-security.cmd` | Locks down `C:\srs` and `\srsdirectives`. |
 
-`hooks-samples/1100-removewindows10bootentry.cmd` has been replaced by `1100-removemasterbootentry.cmd`, which matches the `image.vhd` entry rather than the text "Windows 10". `1200-pinfeatureupdate.cmd` is new (see the feature update limitation above).
-
-## Operating Modes
-SteadierState with the new first run hooks model can now offer two primary "*modes*" **Roll Back Mode** (the default) and **Delta Mode** which are described below.
-
-### **Roll Back Mode**
-  * The default deployment "*mode*" of SteadierState with the default set of first run hooks enabled when the `C:\srs\firstrun.cmd` command is ran on a target PC. Essentially this "*mode*" "*Rolls Back*" any changes that were made since the last reboot.
-
-### **Delta Mode**
-  * The deployment "*mode*" of SteadierState with the default hook of `hooks\1000-rollback.cmd` removed from the hooks folder prior to running the `C:\srs\firstrun.cmd` command on a target PC. Essentially this "*mode*" allows the target PC to run on the snapshot.vhd in **Delta Mode** without rolling back at reboot until instructed otherwise.
+`hooks-samples/1100-removewindows10bootentry.cmd` has been replaced by `1100-removemasterbootentry.cmd`, which matches the `image.vhd` entry rather than the text "Windows 10". `1200-pinfeatureupdate.cmd` is new (see the feature update limitation above). `9900-nightlyreset` and `9901-nightlymerge` now use `srsmgr /schedule rollback|merge /now`. The old `1000-rollback.cmd` hook (the `bcddefault` scheduled task) is gone; the SrsMgr service does that job and the boot mode replaces Roll Back/Delta Mode. `1101-nightlyrestartmaster` and `9902-bcddefaultmaster` boot the master image directly; at the next Windows start the service puts the boot entries back to match the mode.

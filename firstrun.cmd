@@ -44,8 +44,20 @@
 	rem Make the next boot go to "Roll Back Windows" (on-disk WinPE)
 	rem
 	echo.
-	echo Changing the boot order for the next reboot
-	call "%_srsdir%\bcddefault.cmd"
+	echo Installing the Image-O-Tron service and app...
+	if not exist "%_srsdir%\srsmgr.exe" (
+		echo ERROR: %_srsdir%\srsmgr.exe is missing.
+		goto :badend
+	)
+	rem installs + starts the SrsMgr service, creates srs.ini (mode=gui)
+	rem and makes the next boot go to the on-disk WinPE
+	"%_srsdir%\srsmgr.exe" /install
+	if errorlevel 1 (
+		echo ERROR: srsmgr /install failed.
+		goto :badend
+	)
+	echo Creating Start menu and desktop shortcuts...
+	powershell -NoProfile -ExecutionPolicy Bypass -Command "$w=New-Object -ComObject WScript.Shell; foreach($d in @([Environment]::GetFolderPath('CommonDesktopDirectory'),[Environment]::GetFolderPath('CommonPrograms'))){ $s=$w.CreateShortcut((Join-Path $d 'Image-O-Tron 11,000.lnk')); $s.TargetPath='%_srsdir%\srsmgr.exe'; $s.Description='Steadier State rollback manager'; $s.Save() }"
 
 :runhooks
 	echo Attempting to run hooks from %_srsdir%\hooks ...
@@ -65,8 +77,9 @@
 :goodend
 	echo.
 	echo Everything completed successfully! Please reboot. The PC will
-	echo boot to "Roll Back Windows", create snapshot.vhd and reboot into
-	echo the protected Windows 11.
+	echo boot to the Image-O-Tron boot manager, create snapshot.vhd and
+	echo start the protected Windows 11. From then on the boot manager
+	echo appears on every boot ^(change this in the Image-O-Tron app^).
 	goto :end
 
 :badend
