@@ -7,7 +7,7 @@
 	rem
 	rem Remove the boot menu entry that boots image.vhd directly (the
 	rem "master image" entry bcdboot created). Users then only see the
-	rem snapshot entry and "Roll Back Windows".
+	rem snapshot entry and "Launch Image-O-Tron 11K".
 	rem
 	rem Windows 11 change: the old sample matched the text "Windows 10",
 	rem which no longer matches on Windows 11 and would also have matched

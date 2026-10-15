@@ -43,11 +43,12 @@
 #define SVC_DISPLAY L"Image-O-Tron 11,000 (Steadier State)"
 #define PIPE_NAME   L"\\\\.\\pipe\\SrsMgr"
 #define PHY_LABEL   L"Physical_Drive"
-#define RB_DESC     L"Roll Back Windows"
+#define RB_DESC     L"Launch Image-O-Tron 11K"
+#define RB_DESC_OLD L"Roll Back Windows"     /* PCs deployed before the rename */
 #define SNAP_DESC   L"Windows 11 (Steadier State)"
 #define RESP_MAX    65536           /* WCHARs */
 /* Fixed BCD identifiers (locale-independent lookup). prepnewpc creates
- * "Roll Back Windows" with RB_GUID; srsmgr creates the snapshot entry with
+ * "Launch Image-O-Tron 11K" (formerly "Roll Back Windows") with RB_GUID; srsmgr creates the snapshot entry with
  * SNAP_GUID. Older deployments with random GUIDs are found by parsing. */
 #define RB_GUID     L"{5d0c6a10-1e5b-4c7e-9a7d-511f0a11b001}"
 #define SNAP_GUID   L"{5d0c6a10-1e5b-4c7e-9a7d-511f0a11b002}"
@@ -503,7 +504,7 @@ static BOOL bcd_exists(const WCHAR *guid)
 /* BCD                                                                 */
 /* ------------------------------------------------------------------ */
 typedef struct {
-    WCHAR rb[64];    /* "Roll Back Windows" entry GUID */
+    WCHAR rb[64];    /* boot manager (on-disk WinPE) entry GUID */
     WCHAR snap[64];  /* snapshot.vhd entry GUID         */
 } BcdIds;
 
@@ -527,7 +528,8 @@ static void bcd_find(BcdIds *ids)
         if (!_wcsicmp(key, L"identifier")) {
             scpy(cur, 64, val);
             cur[63] = 0;
-        } else if (!ids->rb[0] && !_wcsicmp(key, L"description") && !_wcsicmp(val, RB_DESC)) {
+        } else if (!ids->rb[0] && !_wcsicmp(key, L"description") &&
+                   (!_wcsicmp(val, RB_DESC) || !_wcsicmp(val, RB_DESC_OLD))) {
             wcscpy(ids->rb, cur);
         } else if (!ids->snap[0] && (!_wcsicmp(key, L"device") || !_wcsicmp(key, L"osdevice")) &&
                    wcsstr(_wcslwr(val), L"snapshot.vhd")) {
@@ -535,7 +537,7 @@ static void bcd_find(BcdIds *ids)
         }
     }
     free(out);
-    detail(L"BCD: Roll Back Windows=%ls  snapshot=%ls",
+    detail(L"BCD: boot manager entry=%ls  snapshot=%ls",
            ids->rb[0] ? ids->rb : L"(none)", ids->snap[0] ? ids->snap : L"(none)");
 }
 
@@ -580,7 +582,7 @@ static BOOL bcd_ensure_snapshot(BcdIds *ids)
  *   WinPE, after any action/Continue (toSnap): default = snapshot, so the
  *       next boot starts Windows.
  *   Windows (service start, settings, schedule, cancel):
- *       default = "Roll Back Windows" unless the mode is Straight to
+ *       default = the boot manager entry unless the mode is Straight to
  *       Windows with nothing scheduled, in which case default = snapshot.
  *   So a crash/power cut after Windows has started returns to the boot
  *   manager, exactly like the old bcddefault task. */
@@ -596,9 +598,14 @@ static BOOL bcd_apply(const Config *c, BOOL toSnap, BOOL wantPE)
     const WCHAR *def = useSnap ? ids.snap : ids.rb;
     if (!def[0]) {
         sfmt(g_lastErr, 1024, L"Couldn't find the %ls boot entry.",
-             useSnap ? L"snapshot" : L"\"Roll Back Windows\"");
+             useSnap ? L"snapshot" : L"\"" RB_DESC L"\"");
         detail(L"%ls", g_lastErr);
         return FALSE;
+    }
+    /* keep the boot menu name current (renames "Roll Back Windows" on older PCs) */
+    if (ids.rb[0]) {
+        sfmt(a, 256, L"/set %ls description \"%ls\"", ids.rb, RB_DESC);
+        bcdedit(a, NULL);
     }
     sfmt(a, 256, L"/default %ls", def);
     if (bcdedit(a, NULL) != 0) {

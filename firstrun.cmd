@@ -41,7 +41,7 @@
 
 :bcdtask
 	rem
-	rem Make the next boot go to "Roll Back Windows" (on-disk WinPE)
+	rem Make the next boot go to "Launch Image-O-Tron 11K" (on-disk WinPE)
 	rem
 	echo.
 	echo Installing the Image-O-Tron service and app...

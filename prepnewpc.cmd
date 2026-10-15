@@ -5,13 +5,13 @@
 	echo ------------------------------------------------------------------
 	echo.
 	echo Steadier State lets you create a "snapshot" of a Windows 11
-	echo installation so that every reboot (or "Roll Back Windows") undoes
+	echo installation so that every reboot (or "Launch Image-O-Tron 11K") undoes
 	echo every change made since the snapshot. PREPNEWPC prepares a PC:
 	echo.
 	echo  1. Wipes the disk you choose and lays out a GPT disk:
 	echo       EFI System (260MB) - MSR (16MB) - SrS_Tools WinPE (3GB)
 	echo       - Physical_Drive (rest of disk, holds image.vhd)
-	echo  2. Installs WinPE onto SrS_Tools (the "Roll Back Windows" OS).
+	echo  2. Installs WinPE onto SrS_Tools (the "Launch Image-O-Tron 11K" OS).
 	echo  3. Copies image.vhd (made with CVT2VHD) from external storage.
 	echo  4. Writes the UEFI boot files and BCD entries.
 	echo.
@@ -367,12 +367,12 @@
 
 :bcdconfig
 	echo.
-	echo Adding the "Roll Back Windows" (on-disk WinPE) boot entry
+	echo Adding the "Launch Image-O-Tron 11K" (on-disk WinPE) boot entry
 	rem fixed GUID so srsmgr finds it without parsing (language-independent)
 	set _guid={5d0c6a10-1e5b-4c7e-9a7d-511f0a11b001}
-	bcdedit %_bcdstore% /create %_guid% /d "Roll Back Windows" /application osloader
+	bcdedit %_bcdstore% /create %_guid% /d "Launch Image-O-Tron 11K" /application osloader
 	if errorlevel 1 (
-		echo Unable to create the Roll Back Windows entry with bcdedit
+		echo Unable to create the Launch Image-O-Tron 11K entry with bcdedit
 		goto :badend
 	)
 	echo on

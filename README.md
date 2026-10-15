@@ -130,7 +130,7 @@ C:\srs\srsmgr.exe /install | /uninstall      (elevated)
 
 ### How the boot entries are used
 
-Only the **default** boot entry is used (as in the original Steadier State). After any action, including Continue, WinPE makes the snapshot the default so the next boot starts Windows. When Windows starts, the SrsMgr service sets the default back to "Roll Back Windows", so the next restart (or a crash or power cut) goes to the boot manager. The exception is Straight to Windows mode, where the snapshot stays the default unless an action is scheduled.
+Only the **default** boot entry is used (as in the original Steadier State). After any action, including Continue, WinPE makes the snapshot the default so the next boot starts Windows. When Windows starts, the SrsMgr service sets the default back to "Launch Image-O-Tron 11K", so the next restart (or a crash or power cut) goes to the boot manager. The exception is Straight to Windows mode, where the snapshot stays the default unless an action is scheduled.
 
 ### Updating srsmgr.exe on a deployed PC
 
@@ -140,7 +140,7 @@ Put the new `srsmgr.exe` next to `srs-update.cmd` and run the script elevated in
 Boot the USB stick and run `restore2disk`. It wipes the disk you choose and applies `image.wim` (left by cvt2vhd) or `image.vhd` from an external drive as a normal, non-VHD Windows install.
 
 ### WinPE backgrounds
-`background\usb.jpg` is the desktop of the USB stick / ISO WinPE, and `background\disk.jpg` is the desktop of the on-disk "Roll Back Windows" WinPE. To change them, replace either JPG and re-run `buildpe.cmd`. To update things that already exist without rebuilding, run `setbackground.cmd` elevated in Windows: it updates this PC's hidden SrS_Tools WinPE (`disk.jpg`) and/or patches `sources\boot.wim` on an existing USB stick (`usb.jpg`).
+`background\usb.jpg` is the desktop of the USB stick / ISO WinPE, and `background\disk.jpg` is the desktop of the on-disk "Launch Image-O-Tron 11K" WinPE. To change them, replace either JPG and re-run `buildpe.cmd`. To update things that already exist without rebuilding, run `setbackground.cmd` elevated in Windows: it updates this PC's hidden SrS_Tools WinPE (`disk.jpg`) and/or patches `sources\boot.wim` on an existing USB stick (`usb.jpg`).
 
 ### Disk layout created by prepnewpc (GPT)
 
@@ -148,7 +148,7 @@ Boot the USB stick and run `restore2disk`. It wipes the disk you choose and appl
 |---|---|---|---|
 | 1 | EFI System (`SYSTEM_UEFI`) | 260 MB | Boot manager and BCD |
 | 2 | MSR | 16 MB | Microsoft reserved |
-| 3 | `SrS_Tools` (Windows RE type, hidden) | 3 GB | On-disk WinPE: "Roll Back Windows" |
+| 3 | `SrS_Tools` (Windows RE type, hidden) | 3 GB | On-disk WinPE: "Launch Image-O-Tron 11K" |
 | 4 | `Physical_Drive` | Rest of disk | `image.vhd`, `snapshot.vhd`, `\srsdirectives` |
 
 ## Hooks

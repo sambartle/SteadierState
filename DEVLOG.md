@@ -280,3 +280,11 @@ A crash or power cut after the service has started still lands in the boot manag
 **Workaround on an affected PC:** on the boot screen choose Settings > Boot mode > Straight to Windows, then Continue (this sets the default rather than the one-time sequence).
 **New tool `srs-update.cmd`:** run elevated in Windows with a new srsmgr.exe next to it. It stops the service, replaces C:\srs\srsmgr.exe, starts the service, mounts SrS_Tools and replaces the WinPE copy (checked with fc /b), then offers to schedule a merge so the update survives rollbacks.
 Tested here: WinPE actions now set `/default {snapshot}`; the service sets `/default {Roll Back Windows}` in GUI mode; in direct mode, schedule switches the default to Roll Back Windows and cancel switches it back.
+
+## 2026-10-15 - Boot entry renamed to "Launch Image-O-Tron 11K"
+
+**Request (Sam):** rename the "Roll Back Windows" boot menu entry.
+- prepnewpc creates the on-disk WinPE entry as "Launch Image-O-Tron 11K" (same fixed GUID {...b001}).
+- srsmgr: `RB_DESC` = "Launch Image-O-Tron 11K". The fallback lookup also accepts the old "Roll Back Windows", and every `bcd_apply` sets the description, so already-deployed PCs are renamed automatically the first time the new srsmgr.exe runs. (Tested: an old entry is found and `/set {id} description "Launch Image-O-Tron 11K"` is issued.)
+- Text updated in prepnewpc, firstrun, setbackground, hooks-samples/1100, README, background/README. disk.jpg regenerated with the caption "Booted from on-disk WinPE - Launch Image-O-Tron 11K".
+- Existing PC: install the new srsmgr.exe with srs-update.cmd; the name changes the next time the service starts or WinPE runs. Run setbackground.cmd option 1 for the new caption.

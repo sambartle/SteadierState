@@ -8,7 +8,7 @@
 	rem desktop backgrounds in .\background\ to things that already exist,
 	rem so you don't have to rebuild or redeploy:
 	rem
-	rem   1) This PC's on-disk WinPE ("Roll Back Windows", the hidden
+	rem   1) This PC's on-disk WinPE ("Launch Image-O-Tron 11K", the hidden
 	rem      SrS_Tools partition)  <- background\disk.jpg
 	rem   2) An existing Steadier State USB stick (patches
 	rem      \sources\boot.wim)     <- background\usb.jpg (+ disk.jpg is

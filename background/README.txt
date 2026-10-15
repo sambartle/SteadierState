@@ -1,7 +1,7 @@
 WinPE desktop backgrounds for Steadier State (Windows 11 edition)
 
   usb.jpg   - shown when booted from the Steadier State USB stick / ISO
-  disk.jpg  - shown when booted into the on-disk WinPE ("Roll Back Windows")
+  disk.jpg  - shown when booted into the on-disk WinPE ("Launch Image-O-Tron 11K")
 
 usb.jpg uses the blue "Image-O-Tron 11,000" logo and disk.jpg the red one,
 each with a small caption at the bottom saying which WinPE is running.
